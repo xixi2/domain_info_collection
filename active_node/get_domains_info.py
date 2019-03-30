@@ -64,7 +64,7 @@ def list2record(data_list, keys, key_index, mongo_index):
     for item in data_list:
         rec_unique = {"$addToSet": {keys[key_index]: item[key_index]}}
         rec_basic = {keys[0]: item[0]}
-        db_active_node[mongo_index].update(rec_basic, rec_unique)
+        db_active_node[mongo_index].update(rec_basic, rec_unique, True)
 
 
 def save2mongodb(answer_list, authority_list, additional_list):
