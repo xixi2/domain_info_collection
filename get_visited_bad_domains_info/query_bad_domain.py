@@ -7,7 +7,7 @@ from pymongo import MongoClient
 from common.date_op import generate_day_seq
 from common.mongodb_op import MAL_DOMS_MONGO_DB, MAL_DOMS_MONGO_INDEX, NIC_LOG_MONGO_DB, \
     NIC_LOG_FULL_NAME_VISITING_MONGO_INDEX, GOOD_DOMAINS_MONGO_DB, GOOD_DOMAINS_MONGO_INDEX, \
-    NIC_LOG_GOOD_DOMAIN_SUBDOMAINS, NIC_LOG_GOOD_FULL_NAME_VISITING_MONGO_INDEX
+    NIC_LOG_GOOD_DOMAIN_SUBDOMAINS_MONGO_INDEX, NIC_LOG_GOOD_FULL_NAME_VISITING_MONGO_INDEX
 from common.mongodb_op import mongo_url
 from common.mongodb_op import query_mongodb_by_body, save_domain_subdomains2mongodb
 from common.other_common import COLLECT_WHOIS_OF_BAD_DOMAINS, COLLECT_WHOIS_OF_GOOD_DOMAINS
@@ -65,7 +65,7 @@ def search(domains, query_start_date="2019.03.19", choice=COLLECT_WHOIS_OF_BAD_D
                         save_full_domains_visiting_records2mongodb(full_domain)
                     elif choice == COLLECT_WHOIS_OF_GOOD_DOMAINS:
                         save_domain_subdomains2mongodb(domains[index], [full_domain, ], db_nic_log,
-                                                       NIC_LOG_GOOD_DOMAIN_SUBDOMAINS)
+                                                       NIC_LOG_GOOD_DOMAIN_SUBDOMAINS_MONGO_INDEX)
                         save_full_domains_visiting_records2mongodb(full_domain=full_domain,
                                                                    mongo_index=NIC_LOG_GOOD_FULL_NAME_VISITING_MONGO_INDEX)
 

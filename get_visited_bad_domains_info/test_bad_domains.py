@@ -5,8 +5,8 @@
 import os
 import time
 import random
-from common.common_domains_op import write2file
-from common.common_domains_op import UVER_DOM_DIR, VER_DOM_DIR
+from common.domains_op import write2file
+from common.domains_op import UVER_DOM_DIR, VER_DOM_DIR
 from get_visited_bad_domains_info.test_one_domain import scan_url
 
 

@@ -19,8 +19,8 @@ domain_digger = DomainDigger()
 client = MongoClient(mongo_url)
 db_mal_domains = client[MAL_DOMS_MONGO_INDEX]
 db_active_node = client[ACTIVE_MONGO_DB]
-ans_keys = ("domain_name", "ttl", "ip")
-auth_keys = ("domain_name", "ttl", "name_server")
+ans_keys = ("domain", "ttl", "ip")
+auth_keys = ("domain", "ttl", "name_server")
 add_keys = ("name_server", "ttl", "ip")
 
 IP_INDEX = 2
@@ -79,21 +79,25 @@ def save2mongodb(answer_list, authority_list, additional_list):
     """
     list2record(answer_list, ans_keys, IP_INDEX, ACTIVE_DOM_TO_IP_MONGO_INDEX)
     list2record(answer_list, ans_keys, TTL_INDEX, ACTIVE_DOM_TTL_TO_MONGO_INDEX)
-    list2record(authority_list, ans_keys, NAME_SERVER_INDEX, ACTIVE_DOM_NAMESERVER_MONGO_INDEX)
-    list2record(authority_list, ans_keys, TTL_INDEX, ACTIVE_DOM_NAMERSERVER_TTL_MONGO_INDEX)
-    list2record(additional_list, ans_keys, IP_INDEX, ACTIVE_NAMESERVER_TO_IP_MONGO_INDEX)
-    list2record(additional_list, ans_keys, TTL_INDEX, ACTIVE_NAMERSER_TO_IP_TTL_MONGO_INDEX)
+    list2record(authority_list, auth_keys, NAME_SERVER_INDEX, ACTIVE_DOM_NAMESERVER_MONGO_INDEX)
+    list2record(authority_list, auth_keys, TTL_INDEX, ACTIVE_DOM_NAMERSERVER_TTL_MONGO_INDEX)
+    list2record(additional_list, add_keys, IP_INDEX, ACTIVE_NAMESERVER_TO_IP_MONGO_INDEX)
+    list2record(additional_list, add_keys, TTL_INDEX, ACTIVE_NAMERSER_TO_IP_TTL_MONGO_INDEX)
 
 
 def save2database(domains):
     count_zero = 0
     for domain in domains:
+        if not domain_digger.dig_domain(domain):
+            print("dig nothing")
+            continue
         answer_list, authority_list, additional_list = domain_digger.dig_domain(domain)
         print("handlering domain: %s, len of answer_list: %s" % (domain, len(answer_list)))
         if len(answer_list) == 0:
             count_zero += 1
             continue
-        save2mysql(answer_list, authority_list, additional_list)
+        # save2mysql(answer_list, authority_list, additional_list)
+        save2mongodb(answer_list, authority_list, additional_list)
     print("total query %s domains, %s has not any results" % (len(domains), count_zero))
 
 

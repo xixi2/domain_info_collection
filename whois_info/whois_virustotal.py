@@ -9,8 +9,8 @@ from common.scrawer_tools import WHOIS_URL, ERROR_SLEEP, API_KEYS, USER_AGENTS, 
 from common.scrawer_tools import get_proxy_from_redis
 from common.mongodb_op import query_mongodb_by_body, save_domain_subdomains2mongodb
 from common.mongodb_op import MAL_DOMS_MONGO_DB, MAL_DOMS_MONGO_INDEX, DOMAIN_IP_RESOLUTION_MONGO_INDEX, \
-    DOMAIN_WHOIS_MONGO_INDEX, GOOD_DOMAINS_MONGO_DB, GOOD_DOMAINS_MONGO_INDEX, GOOD_DOMAIN_WHOIS_MONGO_INDEX, \
-    GOOD_DOMAIN_SUBDOMAIN_MONGO_INDEX, GOOD_DOMAIN_IP_RESOLUTION_MONGO_INDEX
+    DOMAIN_WHOIS_MONGO_INDEX, GOOD_DOMAINS_MONGO_DB, GOOD_DOMAINS_MONGO_INDEX, DOMAIN_WHOIS_MONGO_INDEX, \
+    DOMAIN_SUBDOMAIN_MONGO_INDEX, DOMAIN_IP_RESOLUTION_MONGO_INDEX
 from common.mongodb_op import mongo_url
 from common.other_common import COLLECT_WHOIS_OF_BAD_DOMAINS, COLLECT_WHOIS_OF_GOOD_DOMAINS
 
@@ -71,6 +71,18 @@ def save_whois_info2mongodb(domain, whois_info, db, mongo_index=DOMAIN_WHOIS_MON
     query_body = {"domain": domain}
     if not db[mongo_index].find(query_body).count():
         db[mongo_index].insert(whois_info)
+
+
+def get_old_whois_info(mongo_index=DOMAIN_WHOIS_MONGO_INDEX, choice=COLLECT_WHOIS_OF_GOOD_DOMAINS):
+    if choice == COLLECT_WHOIS_OF_GOOD_DOMAINS:
+        rec = db_whois_good[mongo_index].find()
+    else:
+        rec = db_whois[mongo_index].find()
+    domain_set = set()
+    for item in rec:
+        domain = item["domain"]
+        domain_set.add(domain)
+    return domain_set
 
 
 def save_domain_ip_resolutions2mongodb(domain, ips, db, mongo_index=DOMAIN_IP_RESOLUTION_MONGO_INDEX):
@@ -164,6 +176,10 @@ if __name__ == "__main__":
         # 取出mongodb中所有的恶意域名
         domain_list = query_mongodb_by_body(client, MAL_DOMS_MONGO_DB, MAL_DOMS_MONGO_INDEX, fields)
     count = 0
+
+    domain_old_set = get_old_whois_info()
+    domain_list = list(set(domain_list) - domain_old_set)
+    print("len of domain_list: %s" % (len(domain_list, )))
     for domain in domain_list:
         # count仅仅用于显示现在处理到多少条，后面可以删除
         if count > 0 and not count % 500:
@@ -173,8 +189,8 @@ if __name__ == "__main__":
         try:
             print("domain: %s resolve_whois_info" % (domain,))
             if choice == COLLECT_WHOIS_OF_GOOD_DOMAINS:
-                resolve_whois_info(domain, GOOD_DOMAIN_IP_RESOLUTION_MONGO_INDEX, GOOD_DOMAIN_SUBDOMAIN_MONGO_INDEX,
-                                   GOOD_DOMAIN_WHOIS_MONGO_INDEX)
+                resolve_whois_info(domain, DOMAIN_IP_RESOLUTION_MONGO_INDEX, DOMAIN_SUBDOMAIN_MONGO_INDEX,
+                                   DOMAIN_WHOIS_MONGO_INDEX)
             elif choice == COLLECT_WHOIS_OF_BAD_DOMAINS:
                 resolve_whois_info(domain)
         except AssertionError as e:

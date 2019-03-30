@@ -16,9 +16,9 @@ HOST = "10.1.1.201:9200"
 VIS_DOMAIN_INDEX_NAME_PREFIX = "niclog-4th-"
 VIS_DOM_DOC_TYPE = 'logs4th'
 NUM_OF_DOAMINS = 5000  # 目前准备取5000个域名做数据集
-r1 = redis.Redis(host='127.0.0.1', port=6379, db=5)      # 提取访问域名时使用数据库5
-r2 = redis.Redis(host='127.0.0.1', port=6379, db=6)      # 统计域名的DNS查询次数时使用数据库6
-r3 = redis.Redis(host='127.0.0.1', port=6379, db=7)      # 以每个域名的domain_2nd作为键，原始domain作为值，使用数据库7
+r1 = redis.Redis(host='127.0.0.1', port=6379, db=5)  # 提取访问域名时使用数据库5
+r2 = redis.Redis(host='127.0.0.1', port=6379, db=6)  # 统计域名的DNS查询次数时使用数据库6
+r3 = redis.Redis(host='127.0.0.1', port=6379, db=7)  # 以每个域名的domain_2nd作为键，原始domain作为值，使用数据库7
 
 
 def keep_3th_dom_name(domain_name):
@@ -170,7 +170,7 @@ def get_every_day_vis_doms():
         print('dom_len= {0}'.format(dom_len))
 
 
-def count_domain_queries_per_window(domain_3th,day_range=5):
+def count_domain_queries_per_window(domain_3th, day_range=5):
     """查询每个域名在每个时间窗口内被查询的次数"""
     dt_str_seq = generate_day_seq(day_range)
     print(dt_str_seq)
@@ -204,7 +204,6 @@ def count_domains_queries():
         count_domain_queries_per_window(domain_3th)
 
 
-
 if __name__ == '__main__':
     # 提取访问的域名
     # get_every_day_vis_doms()
@@ -215,5 +214,3 @@ if __name__ == '__main__':
     end = datetime.now()
     time_cost = (end - start).seconds
     print("time_cost: %s" % time_cost)
-
-

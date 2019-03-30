@@ -32,8 +32,10 @@ def test_mal_domains(mal_domain_dict):
     for domain_dict in mal_domain_dict:
         domain_2nd = domain_dict["domain"]
         sub_domains = domain_dict["subdomains"]
+        ver_sub_domains = domain_dict.get("ver_mal_sub_domains", [])
         print("domain_2nd: %s" % (domain_2nd,))
         if scan_url(domain_2nd):
+            sub_domains = list(set(sub_domains) - set(ver_sub_domains))
             for sub_domain in sub_domains:
                 if not scan_url(sub_domain):
                     sub_domains.remove(sub_domain)
@@ -43,4 +45,5 @@ def test_mal_domains(mal_domain_dict):
 
 if __name__ == "__main__":
     recs = get_niclog_mal_domains()
+    print(recs[0])
     test_mal_domains(recs)
