@@ -6,7 +6,7 @@ import os
 import time
 import random
 from common.domains_op import write2file
-from common.domains_op import UVER_DOM_DIR, VER_DOM_DIR
+from common.domains_op import UVER_DOM_DIR, VER_DOM_DIR, UNVER_GOOD_DOM_DIR
 from get_visited_bad_domains_info.test_one_domain import scan_url
 
 
@@ -83,5 +83,21 @@ def test_domains_list(dir):
         test_domains(file, dst_file)
 
 
+def test_good_domains(dir):
+    """
+    验证已经插入alexa中前2012个域名是否都是正常域名
+    :return:
+    """
+    for file in os.listdir(dir):
+        if file.find("_2nd") < 0:
+            continue
+        dst_file = dir + "checked_" + file
+        file = dir + file
+        print("src: %s, dst: %s" % (file, dst_file))
+        test_domains(file, dst_file)
+
+
 if __name__ == '__main__':
-    test_domains_list(UVER_DOM_DIR)
+    # test_domains_list(UVER_DOM_DIR)
+
+    test_good_domains(UNVER_GOOD_DOM_DIR)
