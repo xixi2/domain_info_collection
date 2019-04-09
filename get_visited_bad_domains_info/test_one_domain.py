@@ -50,7 +50,8 @@ def scan_url(domain):
                 # write_error_domains(domain)
                 time.sleep(ERROR_SLEEP)
                 return False
-            print("pro: %s, url: %s, successfully get domain_name: %s" % (pro, response.url, domain))
+            # print("pro: %s, url: %s, successfully get domain_name: %s" % (pro, response.url, domain))
+            print("successfully get domain_name: %s" % (domain, ))
             d = response.json()
             response.close()
             if d['response_code'] == 0:
