@@ -1,8 +1,12 @@
 import tldextract
+import re
+
+PRE_DIR = "../data_set/bad_domains/"
 
 FULL_DOM_DIR = "../data_set/bad_domains_txt/"  # 需要处理成二级或者三级域名的URL或者全限定域名
 UVER_DOM_DIR = "../data_set/extracted_bad_domains/"  # 处理后的二级或者三级域名，尚未验证是否是恶意域名
 VER_DOM_DIR = "../data_set/verified_bad_domains/"  # 验证后的恶意域名
+UNVER_GOOD_DOM_DIR = "../data_set/good_domains/"
 
 BAD_DOMAIN_FILE_2ND = "../data_set/domains2.txt"
 BAD_DOMAIN_FILE_3TH = "../data_set/domains3.txt"
@@ -24,6 +28,7 @@ def keep_3th_dom_name(domain_name):
     :param domain_name:
     :return:
     """
+    domain_name = domain_name.lower()
     sub_domain, domain, suffix = tldextract.extract(domain_name)
     sub_domain_list = sub_domain.split(".")
     if len(sub_domain_list) > 1:
@@ -49,12 +54,12 @@ def write2file(file, domains_set):
             f_in.write(line)
 
 
-def read_ver_bad_domain_file(file, choice=2):
+def read_domain_file(file):
     domains = set()
     with open(file) as f_out:
         lines = f_out.readlines()
         for line in lines:
-            domain = line.strip("\n")
+            domain = line.strip("\n").lower()
 
             # 暂时再加上一层过滤，防止域名不是二级域名
             domain_2nd = keep_2nd_dom_name(domain)
@@ -63,5 +68,14 @@ def read_ver_bad_domain_file(file, choice=2):
                 # print("content: %s" % content)
                 continue
             domains.add(domain)
-    print("read_ver_bad_domain_file: %s, len of domains: %s" % (file, len(domains)))
+    print("read_domain_file: %s, len of domains: %s" % (file, len(domains)))
     return domains
+
+
+def is_domain_ip(domain):
+    # 检测域名是否是IP，如果是，返回None
+    pattern = "[\d]+\.[\d]+\.[\d]+\.[\d]"
+    if re.match(pattern, domain):
+        return True
+    else:
+        return False
