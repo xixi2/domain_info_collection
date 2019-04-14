@@ -6,23 +6,15 @@ import re
 import tldextract
 from common.domains_op import write2file
 from common.domains_op import FULL_DOM_DIR, UVER_DOM_DIR
+from common.other_common import remove_file
 
 # 暂时这么写
-from common.domains_op import keep_2nd_dom_name, keep_3th_dom_name
+from common.domains_op import keep_2nd_dom_name, keep_3th_dom_name, is_domain_ip
 
 DOMAIN_LEVEL_CHOICE = {
     2: keep_2nd_dom_name,
     3: keep_3th_dom_name
 }
-
-
-def is_domain_ip(domain):
-    # 检测域名是否是IP，如果是，返回None
-    pattern = "[\d]+\.[\d]+\.[\d]+\.[\d]"
-    if re.match(pattern, domain):
-        return True
-    else:
-        return False
 
 
 def handle_domain(domain):
@@ -85,8 +77,7 @@ def read_file_list(dir, choice):
         count += len(domains_set)
         file_prefix = file.split(".")[0]
         file = UVER_DOM_DIR + file_prefix + "_" + str(choice) + ".txt"
-        if os.path.exists(file):
-            os.remove(file)
+        remove_file(file)
         write2file(file, domains_set)
         print("write to file：%s" % file)
 
