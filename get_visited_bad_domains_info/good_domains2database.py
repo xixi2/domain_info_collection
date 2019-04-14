@@ -1,5 +1,6 @@
 import os
 from common.domains_op import read_domain_file
+from common.other_common import remove_file
 from common.mongodb_op import GOOD_DOMAINS_MONGO_DB, GOOD_DOMAINS_MONGO_INDEX
 from common.mongodb_op import mongo_url
 from pymongo import MongoClient
@@ -23,8 +24,7 @@ def omit_bad_domains_from_alexa_domains():
     good_domains = unchecked_domains - bad_domains
     print("len of good domains: %s" % (len(good_domains)))
 
-    if os.path.exists(VER_GOOD_DOMAINS_FILE):
-        os.remove(VER_GOOD_DOMAINS_FILE)
+    remove_file(VER_GOOD_DOMAINS_FILE)
     with open(VER_GOOD_DOMAINS_FILE, "a+") as f_in:
         for good_domain in good_domains:
             line = good_domain + "\n"
