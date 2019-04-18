@@ -10,8 +10,9 @@ mongo_url = 'mongodb://%s:%s@%s:%s' % (User, Password, Host, Port)
 
 # 恶意域名
 MAL_DOMS_MONGO_DB = "malicious_domains"
-MAL_DOMS_MONGO_INDEX = "mal_domains"
-
+MAL_DOMS_MONGO_INDEX = "mal_domains"  # 修改前是这集合，现在是下面这个集合
+# MAL_DOMS_MONGO_INDEX = "vicious_domains"  # 这个域名集合相较上面那个，修改每个域名的来源和恶意类型
+MAL_DOMAINS_MONGO_INDEX = "vicious_domains"
 
 # 主动结点
 ACTIVE_MONGO_DB = "active_domain_ip_resolutions"
@@ -24,12 +25,16 @@ ACTIVE_NAMERSER_TO_IP_TTL_MONGO_INDEX = "active_nameserver2ip_ttl"
 
 # niclog访问记录
 NIC_LOG_MONGO_DB = "nic_log_visiting"
-NIC_LOG_FULL_NAME_VISITING_MONGO_INDEX = "full_domains_visiting_records"
+NIC_LOG_BAD_FULL_NAME_VISITING_MONGO_INDEX = "bad_full_domains_visiting_records"
+NIC_LOG_BAD_DOMAIN_SUBDOMAINS_MONGO_INDEX = "bad_domain_subdomain"
 NIC_LOG_GOOD_DOMAIN_SUBDOMAINS_MONGO_INDEX = "good_domain_subdomain"
 NIC_LOG_GOOD_FULL_NAME_VISITING_MONGO_INDEX = "good_full_domains_visiting_records"
 
+# 域名访问次数，用以形成时间序列的
 BAD_DOMAINS_COUNTER2ND_MONGO_INDEX = "bad_domains_counter_2nd"  # 统计niclog恶意域名的访问次数，以提取时间特征==》二级域名
 BAD_DOMAINS_COUNTER3TH_MONGO_INDEX = "bad_domains_counter_3th"  # 统计niclog恶意域名的访问次数，以提取时间特征==》三级域名
+GOOD_DOMAINS_COUNTER2ND_MONGO_INDEX = "good_domains_counter_2nd"  # 统计niclog恶意域名的访问次数，以提取时间特征==》二级域名
+GOOD_DOMAINS_COUNTER3TH_MONGO_INDEX = "good_domains_counter_3th"  # 统计niclog恶意域名的访问次数，以提取时间特征==》三级域名
 
 # 正常域名
 GOOD_DOMAINS_MONGO_DB = "good_domains"
@@ -44,8 +49,8 @@ DOMAIN_WHOIS_MONGO_INDEX = "domain_whois"
 DOMAIN_IP_RESOLUTION_MONGO_DB = "domain_ip_resolution"
 BAD_DOMAIN_IP_MONGO_INDEX = "bad_domain2ip"
 GOOD_DOMAIN_IP_MONGO_INDEX = "good_domain2ip"
-GOOD_IPS_MONGO_INDEX = "good_ips"       # 正常域名解析得到的ip
-BAD_IPS_MONGO_INDEX = "bad_ips"         # 恶意域名解析得到的ip
+GOOD_IPS_MONGO_INDEX = "good_ips"  # 正常域名解析得到的ip
+BAD_IPS_MONGO_INDEX = "bad_ips"  # 恶意域名解析得到的ip
 
 
 def query_mongodb_by_body(client, db_name, mongo_index, fields=None, query_body=None):
@@ -72,11 +77,13 @@ def query_mongodb_by_body(client, db_name, mongo_index, fields=None, query_body=
     return recs_list
 
 
-def save_domain_subdomains2mongodb(domain, subdomains, db, mongo_index=DOMAIN_SUBDOMAIN_MONGO_INDEX):
+def save_domain_subdomains2mongodb(domain, subdomains, db, mongo_index):
     """
-    :param domain:
+    :param domain: 将从Niclog中匹配到的恶意域名记录到mongodb数据库中
     :param subdomains:
     :return:
     """
     # 这里使用addset有问题，addset只能将一个元素加入到已有数组中，无法将多个元素加入到原始数组中
-    db[mongo_index].update({"domain": domain}, {"$addToSet": {"subdomains": {"$each": subdomains}}}, True)
+    query_body = {"domain": domain}
+    basic_body = {"$addToSet": {"subdomains": {"$each": subdomains}}}
+    db[mongo_index].update(query_body, basic_body, True)
