@@ -14,6 +14,21 @@ db_bad_domain = client[MAL_DOMS_MONGO_DB]
 target_db = client[DOMAIN_IP_RESOLUTION_MONGO_DB]
 
 
+def get_domains_dataset(db, domain_mongo_index):
+    """
+    :param db:
+    :param domain_mongo_index:
+    :return: 从集合取出域名
+    """
+    recs = db[domain_mongo_index].find()
+    domains = []
+    for rec in recs:
+        domain = rec.get(DOMAIN_2ND_FIELD)
+        domains.append(domain)
+    print("len of domains: %s" % (len(domains)))
+    return domains
+
+
 def get_active_domain2ip(db, src_index, target_db, target_index):
     """
             查询dig收集器采集到的域名和解析IP的对应关系存入到domain_ip_resolution数据库中
