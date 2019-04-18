@@ -80,7 +80,10 @@ def save2mongodb(domains, source_list, type_list, db_name, mongo_index_name):
     for domain in domains:
         query_body = {DOMAIN_2ND_FIELD: domain}
         rec_body = set_rec_body(source_list, type_list)
-        db[mongo_index_name].update(query_body, rec_body, True)
+        if not rec_body:
+            db[mongo_index_name].insert(query_body)
+        else:
+            db[mongo_index_name].update(query_body, rec_body, True)
 
 
 def save_one_domain2mongodb(domain, source_list, type_list, db_name, mongo_index_name, insert_new=False):
@@ -96,7 +99,10 @@ def save_one_domain2mongodb(domain, source_list, type_list, db_name, mongo_index
     db = client[db_name]
     query_body = {DOMAIN_2ND_FIELD: domain}
     rec_body = set_rec_body(source_list, type_list)
-    db[mongo_index_name].update(query_body, rec_body, insert_new)
+    if not rec_body:
+        db[mongo_index_name].insert(query_body)
+    else:
+        db[mongo_index_name].update(query_body, rec_body, insert_new)
     exist = db[mongo_index_name].find(query_body).count()
     if exist:
         print("domain: %s, type: %s, exist: %s" % (domain, type_list, exist))
@@ -116,7 +122,7 @@ def read_csv_update_type(csv_file):
 
 def read_domain_txt(txt_file, dst_file):
     """
-    将源文件txt_file中的域名与恶意类型提取出来
+    将源文件txt_file中的域名与恶意类型提取出来,写入到dst_file文件中
     :param txt_file:
     :param dst_file:
     :return:
