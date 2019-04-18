@@ -1,5 +1,6 @@
 DOMAIN_3TH_FIELD = "sub_domain"
 DOMAIN_2ND_FIELD = "domain"
+FULL_DOMAIN = "full_domain"
 DATE_FIELD = "dt_str"
 IP_FIELD = "ip"
 IPS_FIELD = "ips"
