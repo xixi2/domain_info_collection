@@ -23,6 +23,26 @@ def change_date_str_format(date_str, origin_format="%Y.%m.%d", new_format="%Y%m%
     return dt_str
 
 
+def change_date_str_format_v1(date_str, new_format="%Y.%m.%d"):
+    """
+    :param date_str:要处理的字符串如这样：2005-01-15T224257Z
+    :return:符合新格式的，如2005-01-15
+    """
+    date_str = date_str.strip(" ").strip('-').strip('.')
+    origin_format = "%Y-%m-%d"
+    FIXED_CHAR = 'T'
+    pos = date_str.find(FIXED_CHAR)
+    if pos >= 0:
+        date_str = date_str[:pos]
+    try:
+        dt = datetime.strptime(date_str, origin_format)
+        dt_str = dt.strftime(new_format)
+        return dt_str
+    except Exception as e:
+        print("error: %s, date_str:: %s" % (e, date_str))
+        return date_str
+
+
 def days_offset(date_str, day_range, date_format="%Y%m%d"):
     """
     日期向前或向后移动，当day_range为正，日期变大（未来），day_range为负，日期变小（过去）
@@ -62,11 +82,60 @@ def differate_one_day_more(day_before, date_str, date_format="%Y%m%d"):
     return days_gap - 1
 
 
+def fix_date_format(date_str):
+    """
+    用于将16-apr-2014转换为2016-04-16格式
+    :param date_str:
+    :return:
+    """
+    month_dict = {
+        "jun": "01", "feb": "02", "mar": "03", "apr": "04",
+        "aug": "08", "oct": "10", "nov": "11", "dec": "12"
+    }
+    pos = date_str.find('-')
+    pos2 = date_str.find('-', pos + 1)
+    month = date_str[pos + 1:pos2]
+    month_num = month_dict.get(month.lower(), "")
+    print("pos: ", pos, "pos: ", pos2, "month: ", month)
+    return date_str[pos2 + 1:] + "-" + month_num + "-" + date_str[:pos]
+
+
+def format_date_string(date_str):
+    """
+    输入一个时间字符串，它可能是 2016-07-07，也可能是2001.08.10
+    以20010810的格式返回这个字符串
+    :param date_str:
+    :return:
+    """
+    date_str = date_str.strip(" ")
+    time_formats = ["%Y-%m-%d", "%Y.%m.%d", "%Y%m%d"]
+    pos1 = date_str.find("-")
+    pos2 = date_str.find(".")
+    time_format = ""
+    if pos1 > 0:
+        time_format = time_formats[0]
+    if pos2 > 0:
+        time_format = time_formats[1]
+    if len(time_format):
+        try:
+            dt = datetime.strptime(date_str, time_format)
+            dt_str = dt.strftime(time_formats[2])
+            return dt_str
+        except Exception as e:
+            print("error: %s, date_str:: %s" % (e, date_str))
+            return date_str
+    return date_str
+
+
 if __name__ == '__main__':
     days_gap = differate_one_day_more("20190311", "20190312")
     # days_gap = differate_one_day_more("20190310", "20190312")
     # days_gap = differate_one_day_more("20190313", "20190312")
     print("days_gap1111: %s" % (days_gap))
     # dt_str = change_date_str_format("2019.03.11")
-    dt_str = days_offset("20190311", -1)
-    print(dt_str)
+    # dt_str = days_offset("20190311", -1)
+    # print(dt_str)
+
+    date_str = "16-apr-2014"
+    date_str = fix_date_format(date_str)
+    print("date_str: ", date_str)
