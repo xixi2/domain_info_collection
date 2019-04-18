@@ -35,7 +35,6 @@ def test_domains(file, dst_file, choice=2):
             lines = f_out.readlines()
             if os.path.exists(dst_file):
                 v_last_line = find_last_checked_lines(dst_file)
-                # print("lines[235]: %s" % lines[235])
                 pos1 = lines.index(v_last_line)
                 if pos1 < len(lines):
                     lines = lines[pos1 + 1:]
