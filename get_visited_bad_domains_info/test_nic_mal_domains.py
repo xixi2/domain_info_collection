@@ -5,14 +5,16 @@
 """
 import pandas as pd
 import time
+import os
 from pymongo import MongoClient
 from common.mongodb_op import NIC_LOG_MONGO_DB, NIC_LOG_GOOD_DOMAIN_SUBDOMAINS_MONGO_INDEX, \
     NIC_LOG_BAD_DOMAIN_SUBDOMAINS_MONGO_INDEX
-from common.mongodb_op import mongo_url
+from common.mongodb_op import mongo_url, save_domain_subdomains2mongodb
 from common.mongo_common_fields import DOMAIN_2ND_FIELD, SUBDOMAINS_FIELD, VER_SUBDOMAINS_FIELD, SUBDOMAINS_NUMBER, \
     VER_SUBDOMAINS_NUMBER, VER_RATIO
-from common.domains_op import write2file
+from common.domains_op import write2file, keep_3th_dom_name
 from get_visited_bad_domains_info.test_one_domain import scan_url
+from common.other_common import remove_file
 
 client = MongoClient(mongo_url)
 db_nic_sub_domains = client[NIC_LOG_MONGO_DB]
@@ -22,6 +24,10 @@ mongo_index_dict = {
 }
 NOT_MAL_DOM_FILE = "not_mal_domains.txt"
 BAD_RATIO_FILE = "bad_ratio.csv"
+BAD_RATIO_THRESHOLD = 0.8
+SUBDOMAIN_NUMBER_THRESHOLD = 0
+# SUBDOMAIN_NUMBER_THRESHOLD = 2
+BAD_RATIO_ZERO = 0.0
 
 
 def get_niclog_domains(domain_bad, query_body=None):
@@ -37,10 +43,10 @@ def get_niclog_domains(domain_bad, query_body=None):
     recs = []
     if not query_body:
         rec = db_nic_sub_domains[mongo_index].find()
-        print("ans: %s" % (rec.count(),))
+        # print("ans: %s" % (rec.count(),))
     else:
         rec = db_nic_sub_domains[mongo_index].find(query_body)
-        print("ans: %s" % (rec.count(),))
+        # print("ans: %s" % (rec.count(),))
     for item in rec:
         del item["_id"]
         recs.append(item)
@@ -50,6 +56,7 @@ def get_niclog_domains(domain_bad, query_body=None):
 def remove_domain_from_mongo(domain_2nd, sub_domain, db, mongo_index):
     """
     移除以domain_2nd为键， sub_domain为值的记录,sub_domain可能存在于sub_domains或者ver_sub_domains中
+    如：
     :param domain_2nd:
     :param sub_domain:
     :return:
@@ -124,7 +131,7 @@ def delete_not_mal_domains(db, domain_bad, file):
     not_mal_domains = read_not_mal_domains_file(file)
     print('len of not mal doms: %s' % (len(not_mal_domains)))
     for domain_2nd in not_mal_domains:
-        print("delete domain: %s" % (domain_2nd))
+        # print("delete domain: %s" % (domain_2nd))
         delete_not_mal_domain(domain_2nd, db, mongo_index)
 
 
@@ -133,23 +140,54 @@ def delete_not_visited_domains(db, domain_bad):
     mongo_index = mongo_index_dict[domain_bad]
     query_body = {SUBDOMAINS_FIELD: {"$size": 0}}
     num = db[mongo_index].find(query_body).count()
-    print("num: %s" % (num,))
+    print("before delete not visited domains, there are: %s domains not visited" % (num,))
     db[mongo_index].delete_many(query_body)
+    num = db[mongo_index].find().count()
+    print("after delete not visited domains, there are: %s domains" % (num,))
 
 
-def test_mal_domains(db, domain_bad):
-    query_body = {"ver_mal_sub_domains": {"$exists": False}}
-    # print("query_body: %s" % query_body)
-    recs = get_niclog_domains(domain_bad, query_body)
+def delete_not_formated_domains(db, domain_bad):
+    """
+    由于之前没有处理，很多二级域名和三级子域名未转成小写就直接存入了mongodb，现在将它们转成小写后在 存入mongodb中
+    这里先删除之前的，大写域名，并将相应的小写形式存回mongodb
+    """
+    mongo_index = mongo_index_dict[domain_bad]
+    recs = get_niclog_domains(domain_bad)
+    for domain_dict in recs:
+        domain_2nd = domain_dict[DOMAIN_2ND_FIELD]
+        if domain_2nd != domain_2nd.lower():
+            print("domain_2nd:%s, domain_2nd.lower(): %s" % (domain_2nd, domain_2nd.lower()))
+            query_body = {DOMAIN_2ND_FIELD: domain_2nd}
+            basic_body = {"$set": {DOMAIN_2ND_FIELD: domain_2nd.lower()}}
+            db_nic_sub_domains[mongo_index].update(query_body, basic_body)
+            continue
+        sub_domains = domain_dict.get(SUBDOMAINS_FIELD, [])
+        sub_domains_lower = [keep_3th_dom_name(item) for item in sub_domains]
+        ver_sub_domains = domain_dict.get(VER_SUBDOMAINS_FIELD, [])
+        for sub_domain, domain_3th in zip(sub_domains, sub_domains_lower):
+            # 当存入数据库中的子域名不是三级子域名
+            con1 = len(sub_domain) > len(domain_3th)
+            con2 = sub_domain != domain_3th
+            if con1 or con2:
+                print("not subdomain, sub_domain: %s, domain_3th: %s" % (sub_domain, domain_3th))
+                remove_domain_from_mongo(domain_2nd, sub_domain, db_nic_sub_domains, mongo_index)
+                db[mongo_index].update({DOMAIN_2ND_FIELD: domain_2nd}, {"$addToSet": {SUBDOMAINS_FIELD: domain_3th}},
+                                       True)
+                db[mongo_index].update({DOMAIN_2ND_FIELD: domain_2nd},
+                                       {"$addToSet": {VER_SUBDOMAINS_FIELD: domain_3th}}, True)
+
+
+def test_mal_domains(db, domain_bad, recs):
+    # query_body = {"ver_mal_sub_domains": {"$exists": False}}
     mongo_index = mongo_index_dict[domain_bad]
     notmal_count, iter = 0, 0
     not_mal_domains = []
-    for domain_dict in recs:
+    for iter, domain_dict in enumerate(recs):
         domain_2nd = domain_dict[DOMAIN_2ND_FIELD]
         sub_domains = domain_dict[SUBDOMAINS_FIELD]
         ver_sub_domains = domain_dict.get(VER_SUBDOMAINS_FIELD, [])
+        print("handlering %s domain %s" % (iter, domain_2nd))
 
-        # print("domain_2nd: %s" % (domain_2nd,))
         if scan_url(domain_2nd):
             sub_domains = list(set(sub_domains) - set(ver_sub_domains))
             for sub_domain in sub_domains:
@@ -166,8 +204,6 @@ def test_mal_domains(db, domain_bad):
             not_mal_domains.append(domain_2nd)
             notmal_count += 1
 
-        print("handlering %s domain" % (iter,))
-        iter += 1
     if notmal_count:
         print("notmal_count: %s" % (notmal_count,))
     # 将非恶意域名写入文件中，后面删除
@@ -212,18 +248,106 @@ def count_radio_of_bad_subdomains(domain_bad):
             print("domain: %s: ratio: %s, len(sub_domains): %s" % (domain_2nd, ratio, len(sub_domains)))
             zero_count += 1
 
+    print("generate %s" % (BAD_RATIO_FILE))
+    remove_file(BAD_RATIO_FILE)
     df = pd.DataFrame(ratio_dict_list, columns=[DOMAIN_2ND_FIELD, SUBDOMAINS_NUMBER, VER_SUBDOMAINS_NUMBER, VER_RATIO])
     df.sort_values(by=VER_RATIO)
     df.to_csv(BAD_RATIO_FILE)
     return ratio_dict
 
 
+def cmp_func(real_val, lower_bound, op):
+    """
+    :param real_val: 真实值
+    :param lower_bound: 下界
+    :param op:
+        为0时，表示是否real_val == lower_bound；
+        为1时，是否real_val > lower_bound；
+        为-1时，是否real_val < lower_bound
+    :return:
+    """
+    diff = real_val - lower_bound
+    if op == 0:
+        return diff == 0
+    elif op == 1:
+        return diff > 0
+    return diff < 0
+
+
+def read_csv_with_fields(csv_file, cmp_func):
+    """
+    从BAD_RATIO_FILE中找出bad_ratio=len(subdomains)/len(ver_sub_domains) < 0.8且len(subdomains)>2的恶意域名
+    """
+    # if df.loc[i][VER_RATIO] < BAD_RATIO_THRESHOLD and df.loc[i][SUBDOMAINS_NUMBER] > SUBDOMAIN_NUMBER_THRESHOLD:
+
+    ans_list = []
+    df = pd.read_csv(csv_file)
+    for i in range(len(df)):
+        # bad_ratio < 0.8 且len(subdomains) > 0
+        if cmp_func(df.loc[i][VER_RATIO], BAD_RATIO_THRESHOLD, -1) and cmp_func(df.loc[i][SUBDOMAINS_NUMBER],
+                                                                                SUBDOMAIN_NUMBER_THRESHOLD, 1):
+            # bad_ratio < 0.8 且 len(subdomains) > 2
+            # if cmp_func(df.loc[i][VER_RATIO], BAD_RATIO_THRESHOLD, -1) and cmp_func(df.loc[i][SUBDOMAINS_NUMBER],
+            #                                                                             SUBDOMAIN_NUMBER_THRESHOLD, 1):
+            print("domain: %s, ratio: %s, subdomain_numbers: %s" % (
+                df.loc[i][DOMAIN_2ND_FIELD], df.loc[i][VER_RATIO], df.loc[i][SUBDOMAINS_NUMBER]))
+            ans_list.append(df.loc[i][DOMAIN_2ND_FIELD])
+    return ans_list
+
+
+def get_low_bad_ratio_domains_from_csv(csv_file, cmp_func):
+    """
+    从BAD_RATIO_FILE中找出bad_ratio=len(subdomains)/len(ver_sub_domains) < 0.8且len(subdomains)>2的恶意域名
+    """
+    ans_list = []
+    df = pd.read_csv(csv_file)
+    for i in range(len(df)):
+        if cmp_func(df.loc[i][VER_RATIO], BAD_RATIO_ZERO, 0):
+            # print("domain: %s, ratio: %s, subdomain_numbers: %s" % (
+            #     df.loc[i][DOMAIN_2ND_FIELD], df.loc[i][VER_RATIO], df.loc[i][SUBDOMAINS_NUMBER]))
+            ans_list.append(df.loc[i][DOMAIN_2ND_FIELD])
+    return ans_list
+
+
+def domain_has_low_bad_ratio(domain):
+    low_ratio_domains = get_low_bad_ratio_domains_from_csv(BAD_RATIO_FILE, cmp_func)
+    if domain in low_ratio_domains:
+        return True
+    return False
+
+
+def test_low_bad_ratio_domains(domain_bad):
+    """验证，bad_ratio=len(subdomains)/len(ver_sub_domains) < 0.8且len(subdomains)>2的恶意域名"""
+    domains = read_csv_with_fields(BAD_RATIO_FILE, cmp_func)
+    print("there are %s domains has low bad ratio" % (len(domains)))
+    for iter, domain in enumerate(domains):
+        print("handlering %s domain %s" % (iter, domain))
+        query_body = {DOMAIN_2ND_FIELD: domain}
+        recs = get_niclog_domains(domain_bad, query_body)
+        test_mal_domains(db_nic_sub_domains, domain_bad, recs)
+
+
+def delete_some_domains(domain_bad):
+    """由于历史原因，niclog访问集合中存在一些不正确的域名
+    删除伪匹配的恶意域名，未格式化的恶意域名，并非恶意的域名
+    """
+    delete_mistaken_matches(domain_bad, db_nic_sub_domains, mongo_index_dict[domain_bad])
+    delete_not_formated_domains(db_nic_sub_domains, domain_bad)
+    delete_not_visited_domains(db_nic_sub_domains, domain_bad)
+
+    # 正常域名，尚且无法支持此条
+    if domain_bad:
+        delete_not_mal_domains(db_nic_sub_domains, domain_bad, NOT_MAL_DOM_FILE)
+
+
 if __name__ == "__main__":
     domain_bad = int(input("please enter a number: 0 for good domains, 1 for bad domains"))
-    delete_mistaken_matches(domain_bad, db_nic_sub_domains, mongo_index_dict[domain_bad])
-    # test_mal_domains(db_nic_sub_domains, domain_bad)
-    # time.sleep(60)
+    delete_some_domains(domain_bad)
 
-    # delete_not_mal_domains(db_nic_sub_domains, domain_bad, NOT_MAL_DOM_FILE)
-    # count_radio_of_bad_subdomains(domain_bad)
-    # delete_not_visited_domains(db_nic_sub_domains, domain_bad)
+    # 验证所有从niclog中找到的恶意域名
+    # recs = get_niclog_domains(domain_bad)
+    # test_mal_domains(db_nic_sub_domains, domain_bad, recs)
+
+    # 计算每个域名的恶意子域名的占比,并重新查询那些恶意子域名较少的二级域名
+    count_radio_of_bad_subdomains(domain_bad)
+    # test_low_bad_ratio_domains(domain_bad)
