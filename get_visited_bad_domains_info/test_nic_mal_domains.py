@@ -8,11 +8,12 @@ import time
 import os
 from pymongo import MongoClient
 from common.mongodb_op import NIC_LOG_MONGO_DB, NIC_LOG_GOOD_DOMAIN_SUBDOMAINS_MONGO_INDEX, \
-    NIC_LOG_BAD_DOMAIN_SUBDOMAINS_MONGO_INDEX
+    NIC_LOG_BAD_DOMAIN_SUBDOMAINS_MONGO_INDEX, NIC_LOG_GOOD_FULL_NAME_VISITING_MONGO_INDEX, \
+    NIC_LOG_BAD_FULL_NAME_VISITING_MONGO_INDEX
 from common.mongodb_op import mongo_url, save_domain_subdomains2mongodb
-from common.mongo_common_fields import DOMAIN_2ND_FIELD, SUBDOMAINS_FIELD, VER_SUBDOMAINS_FIELD, SUBDOMAINS_NUMBER, \
-    VER_SUBDOMAINS_NUMBER, VER_RATIO
-from common.domains_op import write2file, keep_3th_dom_name
+from common.mongo_common_fields import DOMAIN_2ND_FIELD, FULL_DOMAIN, SUBDOMAINS_FIELD, VER_SUBDOMAINS_FIELD, \
+    SUBDOMAINS_NUMBER, VER_SUBDOMAINS_NUMBER, VER_RATIO
+from common.domains_op import write2file, keep_3th_dom_name, keep_2nd_dom_name
 from get_visited_bad_domains_info.test_one_domain import scan_url
 from common.other_common import remove_file
 
@@ -21,6 +22,10 @@ db_nic_sub_domains = client[NIC_LOG_MONGO_DB]
 mongo_index_dict = {
     0: NIC_LOG_GOOD_DOMAIN_SUBDOMAINS_MONGO_INDEX,
     1: NIC_LOG_BAD_DOMAIN_SUBDOMAINS_MONGO_INDEX
+}
+visiting_mongo_index_dict = {
+    0: NIC_LOG_GOOD_FULL_NAME_VISITING_MONGO_INDEX,
+    1: NIC_LOG_BAD_FULL_NAME_VISITING_MONGO_INDEX
 }
 NOT_MAL_DOM_FILE = "not_mal_domains.txt"
 BAD_RATIO_FILE = "bad_ratio.csv"
@@ -141,9 +146,28 @@ def delete_not_visited_domains(db, domain_bad):
     query_body = {SUBDOMAINS_FIELD: {"$size": 0}}
     num = db[mongo_index].find(query_body).count()
     print("before delete not visited domains, there are: %s domains not visited" % (num,))
-    db[mongo_index].delete_many(query_body)
+    # db[mongo_index].delete_many(query_body)
     num = db[mongo_index].find().count()
     print("after delete not visited domains, there are: %s domains" % (num,))
+
+
+def delete_not_visited_domains_v1(db, domain_bad, old_domain_set):
+    """
+    从bad_full_domains_visiting_records或good_full_domains_visiting_records中查找访问过的二级域名
+    :param db:
+    :param domain_bad:
+    :param old_domain_set: 从Niclog中匹配的二级域名，存在bad_domain_subdomain中
+    :return:
+    """
+    mongo_index = visiting_mongo_index_dict[domain_bad]
+    recs = db[mongo_index].find()
+    domain_2nd_set = set()
+    for rec in recs:
+        full_domain = rec[FULL_DOMAIN]
+        domain_2nd = keep_2nd_dom_name(full_domain)
+        domain_2nd_set.add(domain_2nd)
+    domain_2nd_set = domain_2nd_set & old_domain_set
+    print("len of visited domain_2nd: %s" % (len(domain_2nd_set)))
 
 
 def delete_not_formated_domains(db, domain_bad):
@@ -342,12 +366,19 @@ def delete_some_domains(domain_bad):
 
 if __name__ == "__main__":
     domain_bad = int(input("please enter a number: 0 for good domains, 1 for bad domains"))
-    delete_some_domains(domain_bad)
+    # delete_some_domains(domain_bad)
 
     # 验证所有从niclog中找到的恶意域名
     # recs = get_niclog_domains(domain_bad)
     # test_mal_domains(db_nic_sub_domains, domain_bad, recs)
 
     # 计算每个域名的恶意子域名的占比,并重新查询那些恶意子域名较少的二级域名
-    count_radio_of_bad_subdomains(domain_bad)
+    # count_radio_of_bad_subdomains(domain_bad)
     # test_low_bad_ratio_domains(domain_bad)
+
+    # 删除未访问过的域名：实验证明很多域名确实出现在了niclog中，那么为什么count中无法匹配呢？
+    # old_domain_set = set()
+    # for rec in recs:
+    #     domain_2nd = rec[DOMAIN_2ND_FIELD]
+    #     old_domain_set.add(domain_2nd)
+    # delete_not_visited_domains_v1(db_nic_sub_domains, domain_bad, old_domain_set)
