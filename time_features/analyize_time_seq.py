@@ -6,15 +6,16 @@ import numpy as np
 import pandas as pd
 from common.date_op import differate_one_day_more, change_date_str_format, days_offset
 from common.other_common import remove_file
-from common.mongo_common_fields import DOMAIN_2ND_FIELD
-from common.draw_picture import draw_scatter, draw_bar, draw_two_bar
+from common.mongo_common import DOMAIN_2ND_FIELD
+from common.draw_picture import draw_scatter, draw_bar, draw_two_bar, draw_line
 from time_features.count_bad_domains_visiting import PERIOD_START
 from time_features.extract_time_seq2csv import csv2df, TIME_SEQ_FILE
 # from time_features.detect_cusum import detect_cusum, plot_cusum
 from time_features.cusum_detection import detect_cusum, plot_result
 from time_features.z_score_detection import z_score_peak_detect
 
-DAY_RANGE = 7
+# DAY_RANGE = 7
+DAY_RANGE = 30
 HOURS_IN_ONE_DAY = 24
 EPROCH = 8
 AVG_DISTANCE_FILE = "avg_dis.csv"
@@ -32,11 +33,22 @@ CHANGE_STD = "std"
 
 
 def normialized(p_time_seq):
-    """将时间序列进行归一化，归一化服从正态分布"""
+    """将时间序列进行标准化，服从正态分布"""
     try:
         mean = np.mean(p_time_seq)
         std = np.std(p_time_seq)
         p_time_seq_norm = (p_time_seq - mean) / std
+        return p_time_seq_norm
+    except Exception as e:
+        print("normialized error: %s" % (e,))
+
+
+def min_max_normalize(p_time_seq):
+    """将时间序列进行min-max归一化"""
+    try:
+        min_val = np.min(p_time_seq)
+        max_val = np.max(p_time_seq)
+        p_time_seq_norm = (p_time_seq - min_val) / (max_val - min_val)
         return p_time_seq_norm
     except Exception as e:
         print("normialized error: %s" % (e,))
@@ -56,6 +68,7 @@ def get_time_seq_iter_counter(time_seq):
 
 def one_hour2one_period(time_seq, eproah=EPROCH):
     """
+        构建滑动窗口
         将Pt转化为Pt-和Pt+
         Pt-=以t时刻为中心，往前eproch个时刻的查询次数之和,
         Pt+=以t时刻为中心，往后eproch个时刻的查询次数之和,
@@ -70,6 +83,7 @@ def one_hour2one_period(time_seq, eproah=EPROCH):
         this_sum = 0
         for num in time_seq[i:i + eproah]:
             this_sum += num
+        this_sum /= eproah
         ans = np.append(ans, this_sum)
     return ans
 
@@ -112,8 +126,8 @@ def cal_domains_distance_v1(sorted_time_seq, period_length):
     :param sorted_time_seq:
     :return:
     """
-    # 对时间序列进行标准化（标准正态分布）
-    sorted_time_seq = normialized(sorted_time_seq)
+    # sorted_time_seq = min_max_normalize(sorted_time_seq)  #min-max 归一化
+    sorted_time_seq = normialized(sorted_time_seq)  # 标准化
     total_dis = 0
     n = len(sorted_time_seq)
     # print("n= %s" % n)
@@ -144,6 +158,8 @@ def multi_days_time_seq(time_seq_dict, period_length=7):
     sorted_time_seq_tuple = sorted(time_seq_dict.items(), reverse=False)
     sorted_time_seq = np.array([])
 
+    # print("=======================stary===============================")
+    # print("len of sorted_time_seq_tuple: %s" % (len(sorted_time_seq_tuple)))
     # 取出有序时间序列元组中的第一个日期，若它在记录起始日期之后，则计算它与起始日期的距离，并加上相应个数的0
     ret_start_date = str(sorted_time_seq_tuple[0][0])  # 这里的sorted_time_seq_tuple[0][0]为什么会是Numpy.int64类型呢
     seq_start_date = days_offset(change_date_str_format(PERIOD_START), -1 * (DAY_RANGE - 1))
@@ -151,18 +167,18 @@ def multi_days_time_seq(time_seq_dict, period_length=7):
     if days_gap >= 0:  # 说明有序时间序列中的起始日期与记录起始日期不同
         tmp_time_seq = np.zeros(HOURS_IN_ONE_DAY * (days_gap + 1))
         sorted_time_seq = np.append(sorted_time_seq, tmp_time_seq)
-        # print("ret_start_date: %s, seq_start_date: %s" % (ret_start_date, seq_start_date))
+        # print("add %s days zero" % days_gap)
+    # print("ret_start_date: %s, seq_start_date: %s, days_gap: %s" % (ret_start_date, seq_start_date, days_gap))
 
-    for index in range(min(len(sorted_time_seq_tuple), period_length)):
+    for index in range(len(sorted_time_seq_tuple)):
         date_str = str(sorted_time_seq_tuple[index][0])
         time_seq = sorted_time_seq_tuple[index][1]
-        # print(date_str, time_seq)
         if index:
             day_before = str(sorted_time_seq_tuple[index - 1][0])
             days_gap = differate_one_day_more(day_before, date_str)
-
+            # print("day_before: ", day_before, "date_str: ", date_str, "days_gap: ", days_gap)
             # 两个相邻的时间序列之间相差不止一天， 那么缺少的这些天都是24个0，即这两个日期之间的日期中的查询次数都是0
-            if days_gap:
+            if days_gap >= 0:
                 tmp_time_seq = np.zeros(HOURS_IN_ONE_DAY * days_gap)
                 sorted_time_seq = np.append(sorted_time_seq, tmp_time_seq)
         sorted_time_seq = np.append(sorted_time_seq, time_seq)
@@ -175,9 +191,9 @@ def multi_days_time_seq(time_seq_dict, period_length=7):
     if days_gap >= 0:  # 说明有序时间序列中的截止日期与记录截止日期不同
         tmp_time_seq = np.zeros(HOURS_IN_ONE_DAY * (days_gap + 1))
         sorted_time_seq = np.append(sorted_time_seq, tmp_time_seq)
-    # print("ret_end_date: %s, seq_end_date: %s" % (ret_end_date, seq_end_date))
+    # print("ret_end_date: %s, seq_end_date: %s, days_gap: %s" % (ret_end_date, seq_end_date, days_gap))
 
-    # print("len of sorted_time_seq: %s" % (len(sorted_time_seq)))
+    # print("192 len of sorted_time_seq: %s" % (len(sorted_time_seq)))
     return sorted_time_seq
 
 
@@ -194,7 +210,18 @@ def get_change_duration_std(start_spots, ending_spots):
     return durations.mean(), durations.std()
 
 
-def analysize_one_domain_time_seq(sorted_time_seq, file):
+def show_gp_etc(alarm_spots, start_spots, ending_spots, amp, gp, gn):
+    print("======================gp====================")
+    print(gp > 0)
+    print("=======================gn====================")
+    print(gn > 0)
+    print("=======================alarm_spots====================")
+    print(alarm_spots)
+    print("=======================amp====================")
+    print(amp)
+
+
+def analysize_one_domain_time_seq(sorted_time_seq, file, show=False):
     """
     使用cusum算法检测异常点
     :param sorted_time_seq:
@@ -202,12 +229,18 @@ def analysize_one_domain_time_seq(sorted_time_seq, file):
     :return:
         突变点个数，起点序列，终点序列，累积变化幅度序列
     """
-    p_time_seq = one_hour2one_period(sorted_time_seq) # p_time_seq为划分了时间窗口后的平均访问序列
+    p_time_seq = one_hour2one_period(sorted_time_seq)  # p_time_seq为划分了时间窗口后的平均访问序列
     p_time_seq_norm = normialized(p_time_seq)
+
+    # print("============v=====p_time_seq_norm==================")
+    # print(p_time_seq_norm)
     threshold, drift = 0.4, 0.1
     ending = True
     alarm_spots, start_spots, ending_spots, amp, gp, gn = detect_cusum(p_time_seq_norm, threshold, drift, ending)
-    plot_result(p_time_seq_norm, threshold, drift, ending, alarm_spots, start_spots, ending_spots, gp, gn, file)
+
+    # show_gp_etc(alarm_spots, start_spots, ending_spots, amp, gp, gn)
+    if show:
+        plot_result(p_time_seq_norm, threshold, drift, ending, alarm_spots, start_spots, ending_spots, gp, gn, file)
     change_numbers = alarm_spots.size
     return change_numbers, start_spots, alarm_spots, ending_spots, amp
 
@@ -247,6 +280,7 @@ def detect_abnormal_points_with_z_score(sorted_time_seq_dict, domain_bad):
 
 
 def draw_numbers_list(number_list):
+    # print("len of number_list: %s" % (len(number_list)))
     x_max = max(number_list)
     x_min = min(number_list)
     print("max: %s" % (x_max))
@@ -257,12 +291,67 @@ def draw_numbers_list(number_list):
         for index in range(len(number_list)):
             if number_list[index] == item:
                 d[item] += 1
+    d = sorted(d.items(), key=lambda item: item[1], reverse=True)
+    keys, values = [], []
     for item in d:
-        print("change_num: %s, show times: %s" % (item, d[item]))
-    return list(d.keys()), list(d.values())
+        keys.append(item[0])
+        values.append(item[1])
+        # print("change_num: %s, show times: %s" % (item[0], item[1]))
+    x_arr = np.array(keys)
+
+    data = np.array(number_list)
+    print("突变点均值：%s" % (np.mean(x_arr)))
+    print("突变点方差：%s" % (np.std(x_arr)))
+    print("出现次数最多的突变点个数： %s, 出现次数为： %s" % (keys[0], values[0]))
+    # print("突变点序列： %s" % keys)
+    print("突变点个数小于等于2的域名数量：%s" % (data[data <= 2].size))
+    print("突变点个数小于等于4的域名数量：%s" % (data[data <= 4].size))
+    print("突变点个数小于等于10的域名数量：%s" % (data[data <= 10].size))
+    y_arr = np.array(values)
+
+    return keys, values
 
 
-def detect_abnormal_points_with_cusum(sorted_time_seq_dict, domain_bad):
+def change_info2csv(domain_list, numbres_list, mean_list, std_list, domain_bad):
+    """将突变点个数、duration_mean、duration_std等信息存入文件中"""
+    d = {
+        DOMAIN_2ND_FIELD: domain_list, CHANGE_NUMBERS: numbres_list, CHANGE_MEAN: mean_list,
+        CHANGE_STD: std_list, LABEL_FIELD: domain_bad
+    }
+    df = pd.DataFrame(data=d)
+    df.sort_values(by=CHANGE_NUMBERS)
+    csv_file = str(domain_bad) + "_" + CHANGES_DETECTED_FILE
+    remove_file(csv_file)
+    df.to_csv(csv_file, index=True)
+
+
+def detect_abnormal_points_with_cusum(sorted_time_seq_dict, domain_bad, number2csv=False):
+    numbres_list, mean_list, std_list = [], [], []
+    domain_list = []
+    # print("detect_abnormal_points_with_cusum len of domains: %s" % (len(sorted_time_seq_dict.items())))
+    for domain, sorted_time_seq in sorted_time_seq_dict.items():
+        domain_list.append(domain)
+        file = CUSUM_ANORMAL_FIG + str(domain_bad) + "_" + domain + ".png"
+        remove_file(file)
+        change_numbers, start_spots, alarm_spots, ending_spots, amp = analysize_one_domain_time_seq(sorted_time_seq,
+                                                                                                    file, True)
+        # change_numbers, start_spots, alarm_spots, ending_spots, amp = analysize_one_domain_time_seq(sorted_time_seq,
+        #                                                                                             file, False)
+        # print("domain: %s, starting_spots: %s" % (domain, start_spots))
+
+        duration_mean, duration_std = get_change_duration_std(start_spots, ending_spots)
+        numbres_list.append(change_numbers)
+        mean_list.append(duration_mean)
+        std_list.append(duration_std)
+
+    if number2csv:
+        change_info2csv(domain_list, numbres_list, mean_list, std_list, domain_bad)
+    print("===================domain_bad: %s================" % (domain_bad))
+    x, y = draw_numbers_list(numbres_list)
+    return x, y
+
+
+def detect_abnormal_points_with_cusum_dup(sorted_time_seq_dict, domain_bad):
     numbres_list, mean_list, std_list = [], [], []
     abnormal_visit_list = []
     domain_list = []
@@ -289,9 +378,10 @@ def detect_abnormal_points_with_cusum(sorted_time_seq_dict, domain_bad):
     # 将突变点个数、duration_mean、duration_std等信息存入文件中
     d = {
         DOMAIN_2ND_FIELD: domain_list, CHANGE_NUMBERS: numbres_list, CHANGE_MEAN: mean_list,
-        CHANGE_STD: std_list, LABEL_FIELD: domain_bad, ABNORMAL_VISIT: abnormal_visit_list
+        CHANGE_STD: std_list, LABEL_FIELD: domain_bad
+        # , ABNORMAL_VISIT: abnormal_visit_list
     }
-    df = pd.DataFrame(d)
+    df = pd.DataFrame(data=d)
     df.sort_values(by=CHANGE_NUMBERS)
     csv_file = str(domain_bad) + "_" + CHANGES_DETECTED_FILE
     remove_file(csv_file)
@@ -320,6 +410,12 @@ def read_changes_csv_file(domain_bad):
     return x, y, z, labels
 
 
+def softmax_number(x):
+    exp_x = np.exp(x)
+    softmax_x = exp_x / np.sum(exp_x)
+    return softmax_x
+
+
 def show_changes_with_std():
     """
     绘制正常域名和恶意域名的突变点个数及突变时长的均值和方差的关系
@@ -327,6 +423,24 @@ def show_changes_with_std():
     """
     x_0, y_0, z_0, labels_0 = read_changes_csv_file(0)
     x_1, y_1, z_1, labels_1 = read_changes_csv_file(1)
+    # y_0 = np.exp(y_0)
+    # y_1 = np.exp(y_1)
+    # z_0 = np.exp(z_0)
+    # z_1 = np.exp(z_1)
+
+    # y_0 = softmax_number(y_0)
+    # y_1 = softmax_number(y_1)
+
+    # z_0 = softmax_number(z_0)
+    # z_1 = softmax_number(z_1)
+
+    # y_0 = np.log(y_0)
+    # y_1 = np.log(y_1)
+    # z_0 = np.log(z_0)
+    # z_1 = np.log(z_1)
+
+    # y_0 = y_0 / x_0
+    # y_1 = y_1 / x_1
     type1 = u"正常域名"
     type2 = u"恶意域名"
     xlabel = u"突变点个数"
@@ -335,9 +449,30 @@ def show_changes_with_std():
     title1 = u"突变点个数与时间间隔标准差分布图"
     title2 = u"突变点个数与时间间隔均值分布图"
     title3 = u"时间间隔均值与标准差分布图"
+
+    # print("正常域名的突变点个数： %s" % (x_0))
+    # print("正常域名的突变时长范围： %s" % (y_0))
+    # print("恶意域名的突变点个数： %s" % (x_1))
+    # print("恶意域名的突变时长范围： %s" % (y_1))
+    # print("==============domain_bad: %s================" % domain_bad)
+    # print("正常域名中突变点个数为2的域名的突变时长方差")
+    # print(y_0[x_0 == 2])
+    # print("恶意域名中突变点个数为2的域名的突变时长方差")
+    # print(y_1[x_1 == 2])
+
+    print("正常域名中突变点个数小于等于4的域名的突变时长方差")
+    print(y_0[x_0 <= 4])
+    print("正常域名中突变点个数小于等于4的域名的突变时长均值")
+    print(z_0[x_0 <= 4])
+
+    print("恶意域名中突变点个数小于等于4的域名的突变时长方差")
+    print(y_1[x_1 <= 4])
+    print("恶意域名中突变点个数小于等于4的域名的突变时长均值")
+    print(z_1[x_1 <= 4])
     draw_scatter(x_0, y_0, x_1, y_1, type1, type2, xlabel, ylabel, title1)
     # draw_scatter(x_0, z_0, x_1, z_1, type1, type2, xlabel, zlabel, title2)
     # draw_scatter(y_0, z_0, y_1, z_1, type1, type2, ylabel, zlabel, title3)
+    # draw_line(x_0, y_0, x_1, y_1)
 
 
 def cal_distance_within_time_window(sorted_time_seq_dict, domain_bad):
@@ -349,14 +484,15 @@ def cal_distance_within_time_window(sorted_time_seq_dict, domain_bad):
     """
     # lag = int(input("please enter a different value for lag, for default lag is %s" % HOURS_IN_ONE_DAY))
     lag = HOURS_IN_ONE_DAY
-    lag = 8
+    # lag = 8
     visited_domains, avg_distances = [], []
     total_counter = 0
 
     # 不同域名的时间序列所处的时间段不同， 起始日期均不同
     # 对于某一个域名，计算每一个时间段（默认是以一天作为一个时间段）之间的相似度
     for domain in sorted_time_seq_dict:
-        # print("len of sorted_time_seq_dict[%s]: %s" % (domain, len(sorted_time_seq_dict[domain])))
+        print('===================cal_distance_within_time_window====================')
+        print("len of sorted_time_seq_dict[%s]: %s" % (domain, len(sorted_time_seq_dict[domain])))
         sorted_time_seq = sorted_time_seq_dict[domain]
         avg_dis = cal_domains_distance_v1(sorted_time_seq, lag)
         visited_domains.append(domain)
@@ -428,11 +564,9 @@ def global_analysize(time_seq_nesting_dict, domain_bad):
     寻找异常点，并计算
     """
     sorted_time_seq_dict = get_sorted_time_seq_of_domains(time_seq_nesting_dict)
-    cal_distance_within_time_window(sorted_time_seq_dict, domain_bad)    # sorted_time_seq_dict为原始访问次数序列
+    cal_distance_within_time_window(sorted_time_seq_dict, domain_bad)  # sorted_time_seq_dict为原始访问次数序列
     # detect_abnormal_points_with_z_score(sorted_time_seq_dict, domain_bad)
-    x, y = detect_abnormal_points_with_cusum(sorted_time_seq_dict, domain_bad)
-    # show_change_number_domain(x, y)
-    return x, y
+    detect_abnormal_points_with_cusum(sorted_time_seq_dict, domain_bad, True)
 
 
 def draw_two_kind_domains_together():
@@ -440,15 +574,15 @@ def draw_two_kind_domains_together():
     将正常域名和恶意域名的x_0,y_0,x_1,y_1画在同一张直方图里
     :return:
     """
-    time_seq_file = "0_" + TIME_SEQ_FILE
-    time_seq_nesting_dict = csv2df(time_seq_file)
-    sorted_time_seq_dict = get_sorted_time_seq_of_domains(time_seq_nesting_dict)
-    x_0, y_0 = detect_abnormal_points_with_cusum(sorted_time_seq_dict, 0)
-
     time_seq_file = "1_" + TIME_SEQ_FILE
     time_seq_nesting_dict = csv2df(time_seq_file)
     sorted_time_seq_dict = get_sorted_time_seq_of_domains(time_seq_nesting_dict)
-    x_1, y_1 = detect_abnormal_points_with_cusum(sorted_time_seq_dict, 1)
+    x_0, y_0 = detect_abnormal_points_with_cusum(sorted_time_seq_dict, 1)
+
+    time_seq_file = "0_" + TIME_SEQ_FILE
+    time_seq_nesting_dict = csv2df(time_seq_file)
+    sorted_time_seq_dict = get_sorted_time_seq_of_domains(time_seq_nesting_dict)
+    x_1, y_1 = detect_abnormal_points_with_cusum(sorted_time_seq_dict, 0)
 
     x_min = min(x_0)
     x_max = max(x_0)
@@ -456,7 +590,12 @@ def draw_two_kind_domains_together():
         x_min = min(x_1)
     if max(x_1) > x_max:
         x_max = max((x_1))
-    draw_two_bar(x_0, y_0, x_1, y_1, x_min, x_max)
+    label1 = u"恶意域名"
+    label2 = u"正常域名"
+    xlabel = u"从域名访问序列中检测到的突变点个数"
+    ylabel = u"域名数量"
+    title = u""
+    draw_two_bar(x_0, y_0, x_1, y_1, x_min, x_max, label1, label2, xlabel, ylabel, title=title)
 
 
 if __name__ == '__main__':
@@ -464,6 +603,6 @@ if __name__ == '__main__':
     time_seq_file = str(domain_bad) + "_" + TIME_SEQ_FILE
     time_seq_nesting_dict = csv2df(time_seq_file)
     print("len of time_seq_nesting_dict: %s" % (len(time_seq_nesting_dict)))
-    global_analysize(time_seq_nesting_dict, domain_bad)
+    # global_analysize(time_seq_nesting_dict, domain_bad)
     show_changes_with_std()
-    draw_two_kind_domains_together()
+    # draw_two_kind_domains_together()
