@@ -14,7 +14,7 @@ def read_distance_csv(domain_bad, lag=24):
     df = pd.read_csv(csv_file)
     # print(len(df))
     x, y = np.array([]), np.array([])
-    dn = 34
+    dn = 200
     for i in range(min(len(df), dn)):
         avg_dis = df.loc[i][AVG_DIS_FIELD]
         label = df.loc[i][LABEL_FIELD]
@@ -29,11 +29,11 @@ if __name__ == '__main__':
     # 预期结果： 正常域名之间的相似度大，恶意域名之间的相似度小，因此，正常域名的相似度的均值和方差都较小
     x1, y1 = read_distance_csv(0)
     x3, y3 = read_distance_csv(0, 8)
-    # print("x1.size: %s" % (x1.size))
+    print("x1.size: %s" % (x1.size))
 
     x2, y2 = read_distance_csv(1)
     x4, y4 = read_distance_csv(1, 8)
-    # print("x2.size: %s" % (x2.size))
+    print("x2.size: %s" % (x2.size))
 
     print("good domains daily distance mean: %s, std: %s, lag:24" % (x1.mean() * 10000, x1.std() * 10000))
     print("good domains daily distance mean: %s, std: %s, lag:8" % (x3.mean() * 10000, x3.std() * 10000))
