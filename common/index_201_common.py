@@ -1,0 +1,3 @@
+HOST = "10.1.1.201:9200"
+VIS_DOMAIN_INDEX_NAME_PREFIX = "niclog-4th-"
+VIS_DOM_DOC_TYPE = 'logs4th'
