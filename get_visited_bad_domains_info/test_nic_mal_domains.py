@@ -11,11 +11,12 @@ from common.mongodb_op import NIC_LOG_MONGO_DB, NIC_LOG_GOOD_DOMAIN_SUBDOMAINS_M
     NIC_LOG_BAD_DOMAIN_SUBDOMAINS_MONGO_INDEX, NIC_LOG_GOOD_FULL_NAME_VISITING_MONGO_INDEX, \
     NIC_LOG_BAD_FULL_NAME_VISITING_MONGO_INDEX
 from common.mongodb_op import mongo_url, save_domain_subdomains2mongodb
-from common.mongo_common_fields import DOMAIN_2ND_FIELD, FULL_DOMAIN, SUBDOMAINS_FIELD, VER_SUBDOMAINS_FIELD, \
+from common.mongo_common import DOMAIN_2ND_FIELD, FULL_DOMAIN, SUBDOMAINS_FIELD, VER_SUBDOMAINS_FIELD, \
     SUBDOMAINS_NUMBER, VER_SUBDOMAINS_NUMBER, VER_RATIO
 from common.domains_op import write2file, keep_3th_dom_name, keep_2nd_dom_name
 from get_visited_bad_domains_info.test_one_domain import scan_url
 from common.other_common import remove_file
+from common.mongo_common import split_domain_rec
 
 client = MongoClient(mongo_url)
 db_nic_sub_domains = client[NIC_LOG_MONGO_DB]
@@ -234,18 +235,6 @@ def test_mal_domains(db, domain_bad, recs):
     write2file(NOT_MAL_DOM_FILE, not_mal_domains)
 
 
-def split_domain_rec(domain_dict):
-    """
-    将MongoDB数据中的每一条记录（一个字典）分割成各个字段
-    :param domain_dict:
-    :return:
-    """
-    domain_2nd = domain_dict[DOMAIN_2ND_FIELD]
-    sub_domains = domain_dict[SUBDOMAINS_FIELD]
-    ver_sub_domains = domain_dict.get(VER_SUBDOMAINS_FIELD, [])
-    return domain_2nd, sub_domains, ver_sub_domains
-
-
 def count_radio_of_bad_subdomains(domain_bad):
     """
     :param mal_domain_dict: 恶意二级域名的子域名中能够被验证的三级域名占所有子域名的比例
@@ -369,8 +358,8 @@ if __name__ == "__main__":
     # delete_some_domains(domain_bad)
 
     # 验证所有从niclog中找到的恶意域名
-    # recs = get_niclog_domains(domain_bad)
-    # test_mal_domains(db_nic_sub_domains, domain_bad, recs)
+    recs = get_niclog_domains(domain_bad)
+    test_mal_domains(db_nic_sub_domains, domain_bad, recs)
 
     # 计算每个域名的恶意子域名的占比,并重新查询那些恶意子域名较少的二级域名
     # count_radio_of_bad_subdomains(domain_bad)
