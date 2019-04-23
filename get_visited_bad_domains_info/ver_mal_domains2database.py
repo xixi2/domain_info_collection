@@ -6,7 +6,7 @@ from pymongo import MongoClient
 from common.domains_op import VER_DOM_DIR
 from common.domains_op import read_domain_file
 from common.mongodb_op import mongo_url, MAL_DOMS_MONGO_DB, MAL_DOMS_MONGO_INDEX, MAL_DOMAINS_MONGO_INDEX
-from common.mongo_common_fields import DOMAIN_2ND_FIELD, SOURCE_SIET, MAL_TYPE
+from common.mongo_common import DOMAIN_2ND_FIELD, SOURCE_SIET, MAL_TYPE
 from common.domains_op import keep_2nd_dom_name, PRE_DIR
 from common.common_domain_source import allowed_sources
 from common.index_op_mal_dom import set_mal_domain_index_params1, get_domains_with_type
