@@ -37,3 +37,6 @@ def split_domain_rec_v1(domain_dict):
     domain_2nd = domain_dict[DOMAIN_2ND_FIELD]
     status = domain_dict[DOMAIN_STATUS]
     return domain_2nd, status
+
+
+
