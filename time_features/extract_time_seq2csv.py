@@ -16,10 +16,12 @@ TIME_SEQ_FILE = TIME_SEQ_FIELD + ".csv"
 client = MongoClient(mongo_url)
 db_nic_visiting = client[NIC_LOG_MONGO_DB]
 bad_domain_counter2nd_mongo_index = str(DAY_RANGE) + "_" + BAD_DOMAINS_COUNTER2ND_MONGO_INDEX
+good_domain_counter2nd_mongo_index = str(DAY_RANGE) + "_" + GOOD_DOMAINS_COUNTER2ND_MONGO_INDEX
 
 mongo_index_2nd_dict = {
-    0: GOOD_DOMAINS_COUNTER2ND_MONGO_INDEX,
+    0: good_domain_counter2nd_mongo_index,
     1: bad_domain_counter2nd_mongo_index  # 后面加上时间长度，修改成这样
+    # 0:GOOD_DOMAINS_COUNTER2ND_MONGO_INDEX,
     # 1: BAD_DOMAINS_COUNTER2ND_MONGO_INDEX
 }
 
@@ -65,13 +67,15 @@ def get_visited_domains(domain_bad):
     """
     mongo_index_2nd = mongo_index_2nd_dict[domain_bad]
     recs = db_nic_visiting[mongo_index_2nd].find()
-
+    print("recs.count: %s" % recs.count())
     # 查看从日志中匹配到的可以形成时间的域名
     domains = set()
     for rec in recs:
         domain = rec[DOMAIN_2ND_FIELD]
         domains.add(domain)
     print("len of domains: %s" % (len(domains)))
+    # for domain_2nd in domains:
+    #     print("domain %s captured" % (domain_2nd))
     return list(domains)
 
 
@@ -115,8 +119,8 @@ def get_visiting_frequency(domain_bad, number):
 
 if __name__ == '__main__':
     domain_bad = int(input("please enter what kind of domains to get: 0 for good doamins, 1 for bad domains"))
-    number = 190  # 因为恶意域名和正常域名数量不一样，所以这里为了保持两种域名数量一致，设置number
+    number = 5000  # 因为恶意域名和正常域名数量不一样，所以这里为了保持两种域名数量一致，设置number
     get_visited_domains(domain_bad)
-    # get_visiting_frequency(domain_bad, number)
-    # time_seq_file = str(domain_bad) + "_" + TIME_SEQ_FILE
-    # csv2df(time_seq_file)
+    get_visiting_frequency(domain_bad, number)
+    time_seq_file = str(domain_bad) + "_" + TIME_SEQ_FILE
+    csv2df(time_seq_file)
