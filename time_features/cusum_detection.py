@@ -22,6 +22,7 @@ def detect_cusum(x, threshold=1, drift=0, ending=False):
     """
     x = np.atleast_1d(x).astype('float64')
     gp, gn = np.zeros(x.size), np.zeros(x.size)
+    sp, sn = np.zeros(x.size), np.zeros(x.size)
     ta, tai, taf = np.array([[], [], []], dtype=int)
     tap, tan = 0, 0
     amp = np.array([])
@@ -30,12 +31,17 @@ def detect_cusum(x, threshold=1, drift=0, ending=False):
         s = x[i] - x[i - 1]  # 差值
         gp[i] = gp[i - 1] + s - drift  # cumulative sum for + change
         gn[i] = gn[i - 1] - s - drift  # cumulative sum for - change
+
         if gp[i] < 0:
             gp[i], tap = 0, i
         if gn[i] < 0:
             gn[i], tan = 0, i
 
+        # 为了画图
+        sp[i], sn[i] = gp[i], gn[i]
+
         if gp[i] > threshold or gn[i] > threshold:  # change detected!
+            # print("change detected! gp[%s]: %s, gn[%s]: %s" % (i, gp[i], i, gn[i]))
             ta = np.append(ta, i)  # alarm index
             start_point = tap if gp[i] > threshold else tan
             tai = np.append(tai, start_point)  # start
@@ -68,7 +74,7 @@ def detect_cusum(x, threshold=1, drift=0, ending=False):
             taf = taf[~np.append(ind, False)]
         # Amplitude of changes
         amp = x[taf] - x[tai]
-    return ta, tai, taf, amp, gp, gn
+    return ta, tai, taf, amp, sp, sn
 
 
 def plot_result(x, threshold, drift, ending, ta, tai, taf, gp, gn, file=None):
@@ -116,10 +122,10 @@ def test():
     # x = np.array([1,2,3,4,110,25,3,2,1])
     # x = np.array([0, 0, 0, 70, 60, 210, 340, 670, 20, 0, 0, 0, 0])
     x = np.array([0, 0, 5, 20, 50, 70, 20, 210, 340, 670, 20, 0, 0, 0])
-
+    x = np.array([0, -60, -40, -100, -80, -140])
     print("x.shape:", x.shape)
-    threshold = 20
-    drift = 5
+    threshold = 60
+    drift = 10
     ending = True
     ta, tai, taf, amp, gp, gn = detect_cusum(x, threshold, drift, ending)
     print("突变点ta: %s" % (ta))
