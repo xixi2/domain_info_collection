@@ -52,6 +52,10 @@ GOOD_DOMAIN_IP_MONGO_INDEX = "good_domain2ip"
 GOOD_IPS_MONGO_INDEX = "good_ips"  # 正常域名解析得到的ip
 BAD_IPS_MONGO_INDEX = "bad_ips"  # 恶意域名解析得到的ip
 
+# 为了找到更多的恶意域名，采取从niclog中匹配域名，然后使用virustotal进行验证的方法
+UNCERTAIN_NICLOG_MONGO_DB = "uncertain_niclog_domains"
+UNCERTAIN_NICLOG_MONGO_INDEX = "uncertain_niclog_domains"
+
 
 def query_mongodb_by_body(client, db_name, mongo_index, fields=None, query_body=None):
     recs_list = []
