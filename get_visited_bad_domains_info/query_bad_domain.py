@@ -17,16 +17,14 @@ from common.mongodb_op import mongo_url
 from common.mongodb_op import query_mongodb_by_body, save_domain_subdomains2mongodb
 from common.date_op import timestamp_str2ymdh
 from common.domains_op import keep_3th_dom_name
-from common.mongo_common_fields import FULL_DOMAIN, DOMAIN_2ND_FIELD
+from common.mongo_common import FULL_DOMAIN, DOMAIN_2ND_FIELD
+from common.index_201_common import HOST, VIS_DOM_DOC_TYPE, VIS_DOMAIN_INDEX_NAME_PREFIX
 
 client = MongoClient(mongo_url)
 db_nic_log = client[NIC_LOG_MONGO_DB]
 
 PERIOD_START = '2019.04.10'  # 查询开始日期
 DAY_RANGE = 14
-HOST = "10.1.1.201:9200"
-VIS_DOMAIN_INDEX_NAME_PREFIX = "niclog-4th-"
-VIS_DOM_DOC_TYPE = 'logs4th'
 VISITORS = "visitors"
 DT_STRS = "dt_strs"
 
