@@ -16,22 +16,6 @@ HOST = "10.1.1.201:9200"
 VIS_DOMAIN_INDEX_NAME_PREFIX = "niclog-4th-"
 VIS_DOM_DOC_TYPE = 'logs4th'
 NUM_OF_DOAMINS = 5000  # 目前准备取5000个域名做数据集
-r1 = redis.Redis(host='127.0.0.1', port=6379, db=5)  # 提取访问域名时使用数据库5
-r2 = redis.Redis(host='127.0.0.1', port=6379, db=6)  # 统计域名的DNS查询次数时使用数据库6
-r3 = redis.Redis(host='127.0.0.1', port=6379, db=7)  # 以每个域名的domain_2nd作为键，原始domain作为值，使用数据库7
-
-
-def keep_3th_dom_name(domain_name):
-    """
-    只保留三级域名
-    :param domain_name:
-    :return:
-    """
-    sub_domain, domain, suffix = tldextract.extract(domain_name)
-    sub_domain_list = sub_domain.split('.')
-    if len(sub_domain_list) > 1:
-        sub_domain = sub_domain_list[-1]
-    return (sub_domain, domain, suffix)
 
 
 def format_domain_name(domain_name):
@@ -151,23 +135,7 @@ def get_every_day_vis_doms():
     for dt_str in dt_str_seq:
         domain_list, dom_len = set_vis_domain_index_params(dt_str, query_body)
         print("dom_len: %s" % dom_len)
-        for domain_name, domain_tuple in domain_list:
-            domain_2nd = ".".join(domain_tuple[1:])
-            print("domain_tuple: {0}, domain_2nd:{1}".format(domain_tuple, domain_2nd))
-            if domain_tuple[0] == "":
-                domain_3th = ".".join(domain_tuple[1:])
-            else:
-                domain_3th = ".".join(domain_tuple)
-            if not r1.exists(domain_2nd):
-                value_dict = {
-                    "tld": domain_tuple[2],
-                    "2nd": domain_tuple[1],
-                }
-                r1.hmset(domain_2nd, value_dict)
 
-            # 以domain_3th为键，保存该三层域名对应的原始访问域名
-            r3.sadd(domain_2nd, domain_3th)
-        print('dom_len= {0}'.format(dom_len))
 
 
 def count_domain_queries_per_window(domain_3th, day_range=5):
@@ -195,22 +163,9 @@ def count_domain_queries_per_window(domain_3th, day_range=5):
         set_vis_domain_index_params(dt_str, query_body, get_domain_query_numbers)
 
 
-def count_domains_queries():
-    """从redis中读取出所有访问过的域名，查询这5000个域名每个小时被查询的次数"""
-    keys = r1.keys()
-    for domain_3th in keys:
-        domain_3th = str(domain_3th, encoding="utf-8")
-        # print(domain_3th)
-        count_domain_queries_per_window(domain_3th)
 
 
 if __name__ == '__main__':
     # 提取访问的域名
-    # get_every_day_vis_doms()
+    get_every_day_vis_doms()
 
-    # 统计每个域名在时间窗口内的DNS查询次数
-    start = datetime.now()
-    count_domains_queries()
-    end = datetime.now()
-    time_cost = (end - start).seconds
-    print("time_cost: %s" % time_cost)

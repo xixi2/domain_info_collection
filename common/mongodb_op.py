@@ -1,4 +1,5 @@
 from pymongo import MongoClient
+from common.mongo_common import DOMAIN_2ND_FIELD
 
 Host = '192.168.105.140'
 Port = 27017
@@ -79,6 +80,21 @@ def query_mongodb_by_body(client, db_name, mongo_index, fields=None, query_body=
             temp = [val for key, val in item.items()]
             recs_list.append(tuple(temp))
     return recs_list
+
+
+def load_bad_or_good_domains(client, domain_bad):
+    """
+    返回恶意域名数据集中所有的恶意域名或者正常域名
+    :param domain_bad:
+    :return:
+    """
+    fields = [DOMAIN_2ND_FIELD, ]
+    if domain_bad:
+        # 取出mongodb中所有的恶意域名
+        domain_list = query_mongodb_by_body(client, MAL_DOMS_MONGO_DB, MAL_DOMS_MONGO_INDEX, fields)
+    else:  # 从mongodb中取出所有的正常域名
+        domain_list = query_mongodb_by_body(client, GOOD_DOMAINS_MONGO_DB, GOOD_DOMAINS_MONGO_INDEX, fields)
+    return domain_list
 
 
 def save_domain_subdomains2mongodb(domain, subdomains, db, mongo_index):

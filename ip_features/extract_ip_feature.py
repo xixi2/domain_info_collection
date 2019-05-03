@@ -6,7 +6,7 @@ from ip_features.prepare_data import get_domains_dataset
 from common.mongodb_op import DOMAIN_IP_RESOLUTION_MONGO_DB, GOOD_DOMAINS_MONGO_DB, \
     MAL_DOMS_MONGO_DB, GOOD_DOMAIN_IP_MONGO_INDEX, BAD_DOMAIN_IP_MONGO_INDEX, MAL_DOMS_MONGO_INDEX, \
     GOOD_IPS_MONGO_INDEX, BAD_IPS_MONGO_INDEX, GOOD_DOMAINS_MONGO_INDEX
-from common.mongo_common_fields import IP_FIELD, IPS_FIELD, DOMAIN_2ND_FIELD
+from common.mongo_common import IP_FIELD, IPS_FIELD, DOMAIN_2ND_FIELD
 
 client = MongoClient(mongo_url)
 db_good_doamin = client[GOOD_DOMAINS_MONGO_DB]

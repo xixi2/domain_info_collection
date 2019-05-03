@@ -5,7 +5,7 @@ from common.mongodb_op import mongo_url
 from common.mongodb_op import ACTIVE_MONGO_DB, ACTIVE_DOM_TO_IP_MONGO_INDEX, DOMAIN_IP_RESOLUTION_MONGO_INDEX, \
     DOMAIN_IP_RESOLUTION_MONGO_DB, BAD_DOMAIN_IP_MONGO_INDEX, GOOD_DOMAIN_IP_MONGO_INDEX, GOOD_DOMAINS_MONGO_DB, \
     MAL_DOMS_MONGO_DB, GOOD_IPS_MONGO_INDEX, BAD_IPS_MONGO_INDEX
-from common.mongo_common_fields import IP_FIELD, IPS_FIELD, DOMAIN_2ND_FIELD
+from common.mongo_common import IP_FIELD, IPS_FIELD, DOMAIN_2ND_FIELD
 
 client = MongoClient(mongo_url)
 db_active_node = client[ACTIVE_MONGO_DB]

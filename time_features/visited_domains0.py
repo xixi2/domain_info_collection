@@ -8,7 +8,9 @@ from datetime import datetime, timedelta
 import redis
 from elasticsearch import helpers, Elasticsearch
 import tldextract
-from get_visited_bad_domains_info.test_nic_mal_domains import get_niclog_mal_domains
+from get_visited_bad_domains_info.test_nic_mal_domains import get_niclog_domains
+from common.date_op import timestamp_str2ymdh
+
 
 PERIOD_START = '2018.10.1'  # 开始日期
 PERIOD_LENGTH = 5  # 持续时间：100天
@@ -87,15 +89,6 @@ def get_domain_query_numbers(es, index_name, doc_type, query_body=None):
             r2.hincrby(key, index, 1)
             # count += 1
         # print("count: %s" % count)
-
-
-def timestamp_str2ymdh(timestamp_str, date_format="%Y%m%d%H"):
-    """把字符串类型的时间戳转换为年月日时组成的字符串，形如：2018100207"""
-    timestamp_str = timestamp_str.split(".")[0]
-    timestamp = int(timestamp_str)
-    dt = datetime.fromtimestamp(timestamp)
-    dt_str = dt.strftime(date_format)
-    return dt_str
 
 
 def generate_day_seq(day_range=1, date_format="%Y.%m.%d"):

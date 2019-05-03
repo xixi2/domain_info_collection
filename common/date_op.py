@@ -128,14 +128,17 @@ def format_date_string(date_str):
 
 
 if __name__ == '__main__':
-    days_gap = differate_one_day_more("20190311", "20190312")
+    start_day = "2019.04.10"
+    dt_str_seq = generate_day_seq(start_day, day_range=2, forward=-1)
+    print(dt_str_seq)
+    # days_gap = differate_one_day_more("20190311", "20190312")
     # days_gap = differate_one_day_more("20190310", "20190312")
     # days_gap = differate_one_day_more("20190313", "20190312")
-    print("days_gap1111: %s" % (days_gap))
+    # print("days_gap1111: %s" % (days_gap))
     # dt_str = change_date_str_format("2019.03.11")
     # dt_str = days_offset("20190311", -1)
     # print(dt_str)
 
-    date_str = "16-apr-2014"
-    date_str = fix_date_format(date_str)
-    print("date_str: ", date_str)
+    # date_str = "16-apr-2014"
+    # date_str = fix_date_format(date_str)
+    # print("date_str: ", date_str)

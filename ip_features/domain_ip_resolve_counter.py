@@ -15,7 +15,7 @@ from common.mongodb_op import mongo_url
 from common.mongodb_op import DOMAIN_IP_RESOLUTION_MONGO_DB, GOOD_DOMAINS_MONGO_DB, \
     MAL_DOMS_MONGO_DB, GOOD_DOMAIN_IP_MONGO_INDEX, BAD_DOMAIN_IP_MONGO_INDEX, MAL_DOMS_MONGO_INDEX, \
     GOOD_IPS_MONGO_INDEX, BAD_IPS_MONGO_INDEX
-from common.mongo_common_fields import IP_FIELD, IPS_FIELD, DOMAIN_2ND_FIELD
+from common.mongo_common import IP_FIELD, IPS_FIELD, DOMAIN_2ND_FIELD
 from common.draw_picture import draw_bar, draw_two_bar
 
 client = MongoClient(mongo_url)
@@ -96,12 +96,14 @@ if __name__ == '__main__':
     y1_1 = y1_1/ NUMBER_OF_TOTAL_BAD_DOMAINS
     x2_1 = x2_1
     y2_1 = y2_1/ NUMBER_OF_TOTAL_GOOD_DOMAINS
+    xlabel = u"域名对应IP的数量"
+    ylabel = u"对应着x个IP的域名数量"
     # draw_two_bar(x1, y1, x2, y2, label1, label2, title)
     x_min, x_max = 0, 40
-    width = 0.2
-    draw_two_bar(x1_1, y1_1, x2_1, y2_1, x_min, x_max, width, label1, label2, title)
+    width = 0.5
+    draw_two_bar(x1_1, y1_1, x2_1, y2_1, x_min, x_max, label1, label2,xlabel, ylabel, width,  title=title)
 
     print("==================================================================")
     x_min, x_max = 0, 10
-    # draw_out_unique_number(bad_title_domains, get_number_of_unique_domains_sharing_ip, BAD_IPS_MONGO_INDEX, x_min, x_max)
-    # draw_out_unique_number(good_title_domains, get_number_of_unique_domains_sharing_ip, GOOD_IPS_MONGO_INDEX, x_min, x_max)
+    draw_out_unique_number(bad_title_domains, get_number_of_unique_domains_sharing_ip, BAD_IPS_MONGO_INDEX, x_min, x_max)
+    draw_out_unique_number(good_title_domains, get_number_of_unique_domains_sharing_ip, GOOD_IPS_MONGO_INDEX, x_min, x_max)

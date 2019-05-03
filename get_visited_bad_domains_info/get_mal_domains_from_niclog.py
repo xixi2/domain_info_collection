@@ -118,8 +118,22 @@ def ver_niclog_domain_bad():
             # print("domain %s is good" % (domain_2nd))
 
 
+def load_bad_niclog_domains():
+    query_body = {DOMAIN_STATUS: STATUS_ONE}
+    recs = db_unc[mongo_index].find(query_body)
+    bad_domains = set()
+    for rec in recs:
+        bad_domain = rec[DOMAIN_2ND_FIELD]
+        bad_domains.add(bad_domain)
+    print("len of bad domains: %s" % (len(bad_domains)))
+    return bad_domains
+
+
 if __name__ == '__main__':
     # 提取访问的域名
     # dt_str = input("please enter a date, format: %Y.%m.%d")
     # get_every_day_vis_doms(dt_str)
     ver_niclog_domain_bad()
+
+    # 加载所有从niclog中找到的恶意域名
+    # load_bad_niclog_domains()
