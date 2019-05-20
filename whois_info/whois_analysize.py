@@ -11,15 +11,20 @@ db_whois_bad = client[MAL_DOMS_MONGO_DB]
 db_whois_good = client[GOOD_DOMAINS_MONGO_DB]
 BAD_WHOIS_FILE = "bad_whois.csv"
 GOOD_WHOIS_FILE = "good_whois.csv"
+whois_file_dict = {
+    0: GOOD_WHOIS_FILE,
+    1: BAD_WHOIS_FILE
+}
 db_dict = {
     0: db_whois_good,
     1: db_whois_bad
 }
 
 
-def get_whois_info(db, mongo_index):
-    recs = db[mongo_index].find()
-    date_dict = {}
+def get_whois_info(domain_bad):
+    db_whois = db_dict[domain_bad]
+    mongo_index = DOMAIN_WHOIS_MONGO_INDEX
+    recs = db_whois[mongo_index].find()
     date_dict_list = []
     for rec in recs:
         domain = rec[DOMAIN_2ND_FIELD]
@@ -37,11 +42,11 @@ def get_whois_info(db, mongo_index):
             date_dict = {DOMAIN_2ND_FIELD: domain, VALID_DURATION: valid_duration}
             date_dict_list.append(date_dict)
     df = pd.DataFrame(date_dict_list, columns=[DOMAIN_2ND_FIELD, VALID_DURATION])
-    df.to_csv(BAD_WHOIS_FILE, index=True)
+    file = whois_file_dict[domain_bad]
+    df.to_csv(file, index=True)
 
 
 if __name__ == '__main__':
     domain_bad = int(input("please enter what kind of domains to query from the logs:0 for good, 1 for bad"))
-    db_whois = db_dict[domain_bad]
-    mongo_index = DOMAIN_WHOIS_MONGO_INDEX
-    get_whois_info(db_whois, mongo_index)
+
+    get_whois_info(domain_bad)

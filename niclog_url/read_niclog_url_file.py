@@ -18,7 +18,8 @@ from get_visited_bad_domains_info.get_mal_domains_from_niclog import load_bad_ni
 client = MongoClient(mongo_url)
 START_DAY = "2019.04.10"
 FILE_SEQ = 10
-tmp_file = "bad_niclog_url.txt"
+BAD_URL_DOMAINS_FILE = "bad_niclog_url.txt"
+GOOD_URL_DOMAINS_FILE = "good_niclog_url.txt"
 
 
 def tackle_line(line):
@@ -79,7 +80,7 @@ def read_niclog_url_files(file_list, mal_domain_set):
         print("cost_time: %s 秒" % (cost_time))
         insect_domains = unknown_domain_set & mal_domain_set
         print("%s bad domains found in file %s" % (len(insect_domains), file))
-        write2file(tmp_file, insect_domains)
+        write2file(BAD_URL_DOMAINS_FILE, insect_domains)
 
 
 def remove_duplicate_from_file(file):
@@ -105,4 +106,4 @@ if __name__ == "__main__":
     print(" %s domains, size: %s Kbytes" % (len(mal_domain_set), sys.getsizeof(mal_domain_set) / 1024))
     file_list = get_niclog_url_file_list()
     read_niclog_url_files(file_list, mal_domain_set)
-    remove_duplicate_from_file(tmp_file)
+    remove_duplicate_from_file(BAD_URL_DOMAINS_FILE)

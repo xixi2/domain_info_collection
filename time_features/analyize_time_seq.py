@@ -603,6 +603,6 @@ if __name__ == '__main__':
     time_seq_file = str(domain_bad) + "_" + TIME_SEQ_FILE
     time_seq_nesting_dict = csv2df(time_seq_file)
     print("len of time_seq_nesting_dict: %s" % (len(time_seq_nesting_dict)))
-    # global_analysize(time_seq_nesting_dict, domain_bad)
+    global_analysize(time_seq_nesting_dict, domain_bad)
     show_changes_with_std()
     # draw_two_kind_domains_together()

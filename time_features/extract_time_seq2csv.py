@@ -119,7 +119,7 @@ def get_visiting_frequency(domain_bad, number):
 
 if __name__ == '__main__':
     domain_bad = int(input("please enter what kind of domains to get: 0 for good doamins, 1 for bad domains"))
-    number = 5000  # 因为恶意域名和正常域名数量不一样，所以这里为了保持两种域名数量一致，设置number
+    number = 200  # 因为恶意域名和正常域名数量不一样，所以这里为了保持两种域名数量一致，设置number
     get_visited_domains(domain_bad)
     get_visiting_frequency(domain_bad, number)
     time_seq_file = str(domain_bad) + "_" + TIME_SEQ_FILE

@@ -18,7 +18,10 @@ from common.common_whois_fields import CREATE_DATE, UPDATE_DATE, EXPIRY_DATE, VA
     ADMIN_COUNTRY, ADMIN_REGION, CATEGORIES
 from common.mongo_common import DOMAIN_2ND_FIELD, SUBDOMAINS_FIELD
 from common.date_op import change_date_str_format_v1, format_date_string, differate_one_day_more
-from common.domains_op import keep_3th_dom_name
+from common.domains_op import keep_3th_dom_name, write2file
+from get_visited_bad_domains_info.get_mal_domains_from_niclog import load_bad_niclog_domains
+from common.domains_op import read_domain_file
+from niclog_url.read_niclog_url_file import BAD_URL_DOMAINS_FILE, GOOD_URL_DOMAINS_FILE
 
 client = MongoClient(mongo_url)
 db_subdomain_bad = client[MAL_DOMS_MONGO_DB]
@@ -36,9 +39,10 @@ ip_mongo_index = DOMAIN_IP_RESOLUTION_MONGO_INDEX
 subdomain_mongo_index = DOMAIN_SUBDOMAIN_MONGO_INDEX
 whois_mongo_index = DOMAIN_WHOIS_MONGO_INDEX
 
-WHOIS_DAYS_GAP_FILE = "days_gap.txt"
-ALIVE_DAYS = "alive_days"
-UPDATE_DAYS = "update_days"
+WHOIS_DAYS_GAP_FILE = "days_gap.csv"
+ALIVE_DAYS = "alive_days"  # 从注册日到过期日的天数
+UPDATE_DAYS = "update_days"  # 从上一次修改的日期到目前为止的天数
+REGISTER_DAYS = "left_days"  # 从注册日到今日的天数
 
 
 def get_whois_info(domain):
@@ -60,7 +64,7 @@ def get_whois_info(domain):
             s = requests.Session()
             s.mount('https://', HTTPAdapter(max_retries=1))
             s.keep_alive = False
-            response = s.get(WHOIS_URL, params=params, headers=headers, timeout=1, proxies=proxy)
+            response = s.get(WHOIS_URL, params=params, headers=headers, timeout=5, proxies=proxy)
             # print(response.status_code)
             if response.status_code != 200:
                 time.sleep(ERROR_SLEEP)
@@ -195,7 +199,7 @@ def resolve_whois_info(domain, domain_bad):
 
 def get_all_domains(domain_bad):
     """
-    从MongoDB中取出所有需要查询的域名
+    从域名数据集中取出所有需要查询的域名
     :param domain_bad:
     :return:
     """
@@ -208,48 +212,80 @@ def get_all_domains(domain_bad):
 
 def days_gap2csv(data_dict, columns, domain_bad):
     df = pd.DataFrame(data_dict, columns=columns)
-    file = str(domain_bad) + WHOIS_DAYS_GAP_FILE
+    file = str(domain_bad) + "_" + WHOIS_DAYS_GAP_FILE
     df.to_csv(file, index=True)
 
 
 def count_alive_days(domain_list, domain_bad):
+    """
+    统计域名的存活时间，从注册日到当前日期；和域名的最近修改时间
+    并写入csv文件中
+    :param domain_list:
+    :param domain_bad:
+    :return:
+    """
     db = db_whois_dict[domain_bad]
-    create_days_list, update_days_list = [], []
+    data_dict_list = []
+    time_format = "%Y%m%d"
+    today = datetime.now().strftime(time_format)
     for domain in domain_list:
+        print("=================================================")
+        print("domain: %s" % (domain))
         query_body = {DOMAIN_2ND_FIELD: domain}
         recs = db[whois_mongo_index].find(query_body)
+        print("recs.count(): %s" % recs.count())
         if recs.count() > 0:
             rec = recs[0]
-            time_format = "%Y%m%d"
-            today = datetime.now().strftime(time_format)
-            create_date = rec.get(CREATE_DATE, None)
-            create_date = format_date_string(create_date) if create_date else today
-            update_date = rec.get(UPDATE_DATE, None)
-            update_date = format_date_string(update_date) if update_date else today
-            print("create: ", create_date, " today: ", today, " update: ", update_date)
-            days_gap1 = differate_one_day_more(create_date, today) + 1
-            days_gap2 = differate_one_day_more(update_date, today) + 1
-            print("days_gap1:%s, days_gap2: %s" % (days_gap1, days_gap2))
-            create_days_list.append(days_gap1)
-            update_days_list.append(days_gap2)
-    data_dict = {ALIVE_DAYS: create_days_list, UPDATE_DAYS: update_days_list}
-    columns = [ALIVE_DAYS, UPDATE_DAYS]
-    days_gap2csv(data_dict, columns, domain_bad)
+            create_date = rec.get(CREATE_DATE, "")
+            update_date = rec.get(UPDATE_DATE, "")
+            expiry_date = rec.get(EXPIRY_DATE, "")
+            try:
+                print("creat_date: %s, update_date: %s, expiry_date: %s" % (
+                    len(create_date), len(update_date), len(expiry_date)))
+                print("creat_date: %s, update_date: %s, expiry_date: %s" % (create_date, update_date, expiry_date))
+                # create_date = format_date_string(create_date) if len(create_date) > 0 else today
+                if len(create_date) > 0:
+                    create_date = format_date_string(create_date)
+                else:
+                    create_date = today
+
+                # update_date = format_date_string(update_date) if len(update_date) > 0 else today
+                if len(update_date) > 0:
+                    update_date = format_date_string(update_date)
+                else:
+                    update_date = today
+                # expiry_date = format_date_string(expiry_date) if len(expiry_date) > 0 else today
+                if len(expiry_date) > 0:
+                    expiry_date = format_date_string(expiry_date)
+                else:
+                    expiry_date = today
+
+                print("12232 create: ", create_date, " expiry_date: ", expiry_date, " update: ", update_date)
+
+                days_gap1 = differate_one_day_more(create_date, today) + 1
+                days_gap2 = differate_one_day_more(update_date, today) + 1
+                days_gap3 = differate_one_day_more(create_date, expiry_date) + 1
+                print("days_gap1:%s, days_gap2: %s, days_gap3: %s" % (days_gap1, days_gap2, days_gap3))
+
+                # 信息不全，如果days_gap1、days_gap2、days_gap3都为0，则说明三者信息都不足，则忽略此域名
+                if days_gap1 or days_gap2 or days_gap3:
+                    data_dict_list.append({
+                        DOMAIN_2ND_FIELD: domain, REGISTER_DAYS: days_gap1, UPDATE_DAYS: days_gap2,
+                        ALIVE_DAYS: days_gap3
+                    })
+            except Exception as e:
+                print("error: ", e)
+    columns = [DOMAIN_2ND_FIELD, REGISTER_DAYS, ALIVE_DAYS, UPDATE_DAYS]
+    days_gap2csv(data_dict_list, columns, domain_bad)
 
 
-if __name__ == "__main__":
-    domain_bad = int(input("please a number: 0 for collect whois of good domains, 1 for collect whois of bad domains"))
-    fields = [DOMAIN_2ND_FIELD]
-
-    # domain_list = get_all_domains(domain_bad)
-
-    # 临时直接查询所有可以形成时间序列的域名
-    from time_features.extract_time_seq2csv import get_visited_domains
-    domain_list = get_visited_domains(domain_bad)
-
-    # count_alive_days(domain_list, domain_bad)
-
+def query_domain_whois(domain_list):
     domain_old_set = get_old_whois_info(domain_bad)  # 剔除已经获取了whois信息的域名
+
+    # 获取已经成功取得whois信息的正常域名
+    already_domains = domain_old_set & set(domain_list)
+    print("already check %s domains" % (len(already_domains)))
+
     domain_list = list(set(domain_list) - domain_old_set)
     print("len of domain_list: %s" % (len(domain_list, )))
     for iter, domain in enumerate(domain_list):
@@ -261,3 +297,34 @@ if __name__ == "__main__":
                 resolve_whois_info(domain, domain_bad)
         except AssertionError as e:
             print("AssertionError: %s" % (e,))
+
+
+if __name__ == "__main__":
+    domain_bad = int(input("please a number: 0 for collect whois of good domains, 1 for collect whois of bad domains"))
+    fields = [DOMAIN_2ND_FIELD]
+
+    # domain_list = get_all_domains(domain_bad)
+    # print("before len of domain_list: %s" % (len(domain_list, )))
+
+    # =================================================================
+    # 临时直接查询所有可以形成时间序列的域名
+    # from time_features.extract_time_seq2csv import get_visited_domains
+    # domain_list = get_visited_domains(domain_bad)
+
+    # 临时直接查询所有从niclog中找到的恶意域名
+    # domain_list = load_bad_niclog_domains()
+
+    # 临时直接查询所用从恶意域名数据集2中找到的498个恶意域名:记得删除
+    # domain_list = read_domain_file(BAD_URL_DOMAINS_FILE)
+
+    # 临时查询用于正常域名数据集的600个正常域名：记得删除
+    # domain_list = read_domain_file(GOOD_URL_DOMAINS_FILE)
+    # =================================================================
+
+    # 若为恶意域名，则从BAD_URL_DOMAINS_FILE中读取，否则从GOOD_URL_DOMAINS_FILE读取
+    domain_list = read_domain_file(BAD_URL_DOMAINS_FILE) if domain_bad else read_domain_file(GOOD_URL_DOMAINS_FILE)
+
+    # 提取whois特征，并写入csv文件
+    count_alive_days(domain_list, domain_bad)
+
+    # query_domain_whois(domain_list)

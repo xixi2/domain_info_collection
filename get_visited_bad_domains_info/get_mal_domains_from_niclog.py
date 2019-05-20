@@ -3,7 +3,7 @@
 """
 from elasticsearch import helpers, Elasticsearch
 from common.index_201_common import HOST, VIS_DOM_DOC_TYPE, VIS_DOMAIN_INDEX_NAME_PREFIX
-from common.domains_op import keep_2nd_dom_name
+from common.domains_op import keep_2nd_dom_name, read_domain_file
 from common.mongo_common import DOMAIN_2ND_FIELD, DOMAIN_STATUS
 from common.mongodb_op import mongo_url, UNCERTAIN_NICLOG_MONGO_DB, UNCERTAIN_NICLOG_MONGO_INDEX
 from pymongo import MongoClient
@@ -14,9 +14,10 @@ NUM_OF_DOAMINS = 5000
 client = MongoClient(mongo_url)
 db_unc = client[UNCERTAIN_NICLOG_MONGO_DB]
 mongo_index = UNCERTAIN_NICLOG_MONGO_INDEX
-STATUS_ONE = 1
-STATUS_ZERO = 0
-STATUS_UNKNOW = -1
+OLD_141_BAD_DOMAINS_FILE = "141_bad_domains.txt"
+STATUS_ONE = 1  # 恶意域名
+STATUS_ZERO = 0  # 正常域名
+STATUS_UNKNOW = -1  # 恶意性未知域名
 TARGET_INSERT = 0
 TARGET_UPDATE = 1
 
@@ -28,6 +29,9 @@ def format_domain_name(domain_name):
 
 
 def get_all_domains(es, index_name, doc_type, query_body):
+    """
+    每次从niclog中取出一定数量的恶意域名存入到数据库，等待验证是否恶意
+    """
     domain_set = set()
     if es.indices.exists(index_name):
         gen = helpers.scan(es, index=index_name, doc_type=doc_type, query=query_body)
@@ -119,14 +123,27 @@ def ver_niclog_domain_bad():
 
 
 def load_bad_niclog_domains():
+    """
+    从数据集中查询出所有验证过的（从niclog_url日志中找出的）恶意域名
+    :return:
+    """
     query_body = {DOMAIN_STATUS: STATUS_ONE}
     recs = db_unc[mongo_index].find(query_body)
     bad_domains = set()
     for rec in recs:
         bad_domain = rec[DOMAIN_2ND_FIELD]
         bad_domains.add(bad_domain)
-    print("len of bad domains: %s" % (len(bad_domains)))
+    print("len of bad domains from niclog: %s" % (len(bad_domains)))
     return bad_domains
+
+
+def save_visited_old_bad_domains():
+    """
+    将从niclog中能够找到的141个恶意域名（存在于8140个恶意域名数据集中）从文件中读取并插入到后来从niclog日志找到的恶意域名数据集中
+    :return:
+    """
+    domains = read_domain_file(OLD_141_BAD_DOMAINS_FILE)
+    save_domains2mongo(domains, db_unc, STATUS_ONE, TARGET_UPDATE)
 
 
 if __name__ == '__main__':
@@ -137,3 +154,5 @@ if __name__ == '__main__':
 
     # 加载所有从niclog中找到的恶意域名
     # load_bad_niclog_domains()
+
+    save_visited_old_bad_domains()

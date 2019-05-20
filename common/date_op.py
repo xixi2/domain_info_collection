@@ -108,6 +108,10 @@ def format_date_string(date_str):
     :return:
     """
     date_str = date_str.strip(" ")
+    date_str_list = date_str.split(" ")
+    if len(date_str_list) > 1:
+        date_str = date_str_list[0]
+    date_str = date_str.strip(" ").strip("-")
     time_formats = ["%Y-%m-%d", "%Y.%m.%d", "%Y%m%d"]
     pos1 = date_str.find("-")
     pos2 = date_str.find(".")
@@ -122,8 +126,8 @@ def format_date_string(date_str):
             dt_str = dt.strftime(time_formats[2])
             return dt_str
         except Exception as e:
-            print("error: %s, date_str:: %s" % (e, date_str))
-            return date_str
+            print("format_date_string error: %s, date_str:: %s" % (e, date_str))
+            # return date_str
     return date_str
 
 
